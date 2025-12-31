@@ -5,7 +5,7 @@
  * Features:
  * - Message history display
  * - Text input
- * - Voice input (future)
+ * - Voice input with Whisper STT
  * - Mode selection
  */
 
@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { useStore } from '../store/useStore';
 import { ChatBubble } from './ChatBubble';
+import { VoiceRecorder } from './VoiceRecorder';
 import { ConversationMessage } from '../agents/teacher';
 import { InteractionMode } from '../agents/prompts/system-prompt';
 
@@ -34,8 +35,11 @@ const MODES: { mode: InteractionMode; label: string; emoji: string }[] = [
   { mode: 'correction', label: 'Correct', emoji: '🔍' },
 ];
 
+type InputMode = 'text' | 'voice';
+
 export function ChatScreen() {
   const [inputText, setInputText] = useState('');
+  const [inputMode, setInputMode] = useState<InputMode>('voice'); // Default to voice
   const flatListRef = useRef<FlatList>(null);
 
   const {
@@ -62,6 +66,11 @@ export function ChatScreen() {
 
     const text = inputText.trim();
     setInputText('');
+    await sendMessage(text);
+  };
+
+  const handleVoiceTranscription = async (text: string) => {
+    if (!text.trim() || isLoading) return;
     await sendMessage(text);
   };
 
@@ -139,31 +148,81 @@ export function ChatScreen() {
           </View>
         )}
 
-        {/* Input */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Type your message..."
-            placeholderTextColor="#8E8E93"
-            multiline
-            maxLength={1000}
-            editable={!isLoading}
-            onSubmitEditing={handleSend}
-            returnKeyType="send"
-          />
+        {/* Input Mode Toggle */}
+        <View style={styles.inputModeToggle}>
           <TouchableOpacity
             style={[
-              styles.sendButton,
-              (!inputText.trim() || isLoading) && styles.sendButtonDisabled,
+              styles.inputModeButton,
+              inputMode === 'voice' && styles.inputModeButtonActive,
             ]}
-            onPress={handleSend}
-            disabled={!inputText.trim() || isLoading}
+            onPress={() => setInputMode('voice')}
           >
-            <Text style={styles.sendButtonText}>Send</Text>
+            <Text style={styles.inputModeIcon}>🎤</Text>
+            <Text
+              style={[
+                styles.inputModeText,
+                inputMode === 'voice' && styles.inputModeTextActive,
+              ]}
+            >
+              Voice
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.inputModeButton,
+              inputMode === 'text' && styles.inputModeButtonActive,
+            ]}
+            onPress={() => setInputMode('text')}
+          >
+            <Text style={styles.inputModeIcon}>⌨️</Text>
+            <Text
+              style={[
+                styles.inputModeText,
+                inputMode === 'text' && styles.inputModeTextActive,
+              ]}
+            >
+              Type
+            </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Voice Input */}
+        {inputMode === 'voice' && (
+          <View style={styles.voiceInputContainer}>
+            <VoiceRecorder
+              onTranscription={handleVoiceTranscription}
+              disabled={isLoading}
+            />
+          </View>
+        )}
+
+        {/* Text Input */}
+        {inputMode === 'text' && (
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Type your message..."
+              placeholderTextColor="#8E8E93"
+              multiline
+              maxLength={1000}
+              editable={!isLoading}
+              onSubmitEditing={handleSend}
+              returnKeyType="send"
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!inputText.trim() || isLoading) && styles.sendButtonDisabled,
+              ]}
+              onPress={handleSend}
+              disabled={!inputText.trim() || isLoading}
+            >
+              <Text style={styles.sendButtonText}>Send</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -240,6 +299,47 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     color: '#8E8E93',
     fontSize: 14,
+  },
+  inputModeToggle: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5EA',
+    backgroundColor: '#F9FAFB',
+  },
+  inputModeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    marginHorizontal: 8,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  inputModeButtonActive: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#007AFF',
+  },
+  inputModeIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  inputModeText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  inputModeTextActive: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  voiceInputContainer: {
+    paddingVertical: 16,
+    backgroundColor: '#F9FAFB',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5EA',
   },
   inputContainer: {
     flexDirection: 'row',
