@@ -13,5 +13,20 @@ export {
   type TranscriptionResult,
 } from './whisper';
 
+// Text-to-Speech
+export {
+  speak,
+  speakForLanguageLearning,
+  stopSpeaking,
+  isSpeaking,
+  isTTSConfigured,
+  getAvailableProviders,
+  getVoices,
+  type TTSProvider,
+  type TTSOptions,
+  type TTSResult,
+  type TTSVoice,
+} from './tts';
+
 // Audio Recording
 export { audioRecorder, AudioRecorder, type RecordingResult } from './recorder';

@@ -6,6 +6,8 @@
  * - Active teacher agent
  * - Conversation state
  * - Learning progress
+ * - Authentication state
+ * - Cloud sync
  */
 
 import { create } from 'zustand';
@@ -21,6 +23,11 @@ import {
   ProficiencyLevel,
   InteractionMode,
 } from '../agents/prompts/system-prompt';
+import {
+  syncToCloud,
+  loadFromCloud,
+  isSupabaseConfigured,
+} from '../services/supabase';
 
 export interface UserPreferences {
   nativeLanguage: string;
@@ -73,6 +80,17 @@ interface AppState {
   // Onboarding
   hasCompletedOnboarding: boolean;
   completeOnboarding: () => void;
+
+  // Authentication
+  userId: string | null;
+  isAuthenticated: boolean;
+  setAuth: (userId: string | null) => void;
+
+  // Cloud sync
+  isSyncing: boolean;
+  lastSyncedAt: string | null;
+  syncWithCloud: () => Promise<void>;
+  loadFromCloud: () => Promise<void>;
 }
 
 const defaultPreferences: UserPreferences = {
@@ -231,6 +249,89 @@ export const useStore = create<AppState>()(
       // Onboarding
       hasCompletedOnboarding: false,
       completeOnboarding: () => set({ hasCompletedOnboarding: true }),
+
+      // Authentication
+      userId: null,
+      isAuthenticated: false,
+      setAuth: (userId) =>
+        set({
+          userId,
+          isAuthenticated: !!userId,
+        }),
+
+      // Cloud sync
+      isSyncing: false,
+      lastSyncedAt: null,
+      syncWithCloud: async () => {
+        const state = get();
+        if (!state.userId || !isSupabaseConfigured()) return;
+
+        set({ isSyncing: true });
+        try {
+          await syncToCloud(state.userId, {
+            preferences: state.preferences,
+            progress: state.progress,
+          });
+          set({ lastSyncedAt: new Date().toISOString() });
+        } catch (error) {
+          console.error('Sync error:', error);
+        } finally {
+          set({ isSyncing: false });
+        }
+      },
+      loadFromCloud: async () => {
+        const state = get();
+        if (!state.userId || !isSupabaseConfigured()) return;
+
+        set({ isSyncing: true });
+        try {
+          const data = await loadFromCloud(state.userId);
+
+          if (data.preferences) {
+            set({
+              preferences: {
+                nativeLanguage: data.preferences.native_language || 'English',
+                targetLanguages: data.preferences.target_languages || [],
+                proficiencyLevels: data.preferences.proficiency_levels || {
+                  japanese: 'A1',
+                  korean: 'A1',
+                  mandarin: 'A1',
+                },
+                voiceEnabled: data.preferences.voice_enabled ?? true,
+                autoPlayResponses: data.preferences.auto_play_responses ?? true,
+              },
+            });
+          }
+
+          if (data.progress && data.progress.length > 0) {
+            const progressMap: Record<SupportedLanguage, LearningProgress> = {
+              japanese: { ...defaultProgress, language: 'japanese' },
+              korean: { ...defaultProgress, language: 'korean' },
+              mandarin: { ...defaultProgress, language: 'mandarin' },
+            };
+
+            for (const p of data.progress) {
+              progressMap[p.language] = {
+                language: p.language,
+                vocabularyMastered: p.vocabulary_mastered || [],
+                grammarPointsCovered: p.grammar_points_covered || [],
+                conversationMinutes: p.conversation_minutes || 0,
+                exercisesCompleted: p.exercises_completed || 0,
+                currentStreak: p.current_streak || 0,
+                lastPracticeDate: p.last_practice_date,
+              };
+            }
+
+            set({ progress: progressMap });
+          }
+
+          set({ lastSyncedAt: new Date().toISOString() });
+        } catch (error) {
+          console.error('Load from cloud error:', error);
+        } finally {
+          set({ isSyncing: false });
+        }
+      },
     }),
     {
       name: 'language-teacher-storage',
@@ -240,7 +341,33 @@ export const useStore = create<AppState>()(
         activeLanguage: state.activeLanguage,
         progress: state.progress,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
+        userId: state.userId,
+        isAuthenticated: state.isAuthenticated,
+        lastSyncedAt: state.lastSyncedAt,
       }),
+      // Deep merge to avoid read-only property errors
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<AppState> | undefined;
+        return {
+          ...currentState,
+          ...(persisted ? {
+            preferences: { ...currentState.preferences, ...persisted.preferences },
+            activeLanguage: persisted.activeLanguage ?? currentState.activeLanguage,
+            progress: {
+              ...currentState.progress,
+              ...(persisted.progress ? {
+                japanese: { ...currentState.progress.japanese, ...persisted.progress.japanese },
+                korean: { ...currentState.progress.korean, ...persisted.progress.korean },
+                mandarin: { ...currentState.progress.mandarin, ...persisted.progress.mandarin },
+              } : {}),
+            },
+            hasCompletedOnboarding: persisted.hasCompletedOnboarding ?? currentState.hasCompletedOnboarding,
+            userId: persisted.userId ?? currentState.userId,
+            isAuthenticated: persisted.isAuthenticated ?? currentState.isAuthenticated,
+            lastSyncedAt: persisted.lastSyncedAt ?? currentState.lastSyncedAt,
+          } : {}),
+        };
+      },
     }
   )
 );

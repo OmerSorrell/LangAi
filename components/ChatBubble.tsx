@@ -3,11 +3,20 @@
  *
  * Displays a single message in the conversation.
  * Handles both user and assistant messages with different styling.
+ * Includes TTS playback for assistant messages.
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { ConversationMessage, Correction } from '../agents/teacher';
+import { speakForLanguageLearning, stopSpeaking } from '../services/speech';
+import { useStore } from '../store/useStore';
 
 interface ChatBubbleProps {
   message: ConversationMessage;
@@ -15,6 +24,27 @@ interface ChatBubbleProps {
 
 export function ChatBubble({ message }: ChatBubbleProps) {
   const isUser = message.role === 'user';
+  const [isPlaying, setIsPlaying] = useState(false);
+  const { activeLanguage } = useStore();
+
+  const handlePlayAudio = async () => {
+    if (isPlaying) {
+      await stopSpeaking();
+      setIsPlaying(false);
+      return;
+    }
+
+    if (!activeLanguage) return;
+
+    setIsPlaying(true);
+    try {
+      await speakForLanguageLearning(message.content, activeLanguage);
+    } catch (error) {
+      console.error('TTS error:', error);
+    } finally {
+      setIsPlaying(false);
+    }
+  };
 
   return (
     <View
@@ -34,6 +64,24 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         >
           {message.content}
         </Text>
+
+        {/* Play button for assistant messages */}
+        {!isUser && (
+          <TouchableOpacity
+            style={styles.playButton}
+            onPress={handlePlayAudio}
+            activeOpacity={0.7}
+          >
+            {isPlaying ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Text style={styles.playIcon}>🔊</Text>
+            )}
+            <Text style={styles.playText}>
+              {isPlaying ? 'Stop' : 'Listen'}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Cultural Note */}
         {message.culturalNote && (
@@ -170,5 +218,24 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
     marginLeft: 8,
+  },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  playIcon: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  playText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });

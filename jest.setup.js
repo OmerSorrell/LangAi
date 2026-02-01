@@ -5,6 +5,44 @@ jest.mock('expo/virtual/env', () => ({
   env: process.env,
 }));
 
+// Mock Supabase
+jest.mock('@supabase/supabase-js', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      signUp: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' }, session: {} }, error: null }),
+      signInWithPassword: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' }, session: {} }, error: null }),
+      signOut: jest.fn().mockResolvedValue({ error: null }),
+      getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
+      getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
+      resetPasswordForEmail: jest.fn().mockResolvedValue({ error: null }),
+      onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
+    },
+    from: jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      insert: jest.fn().mockResolvedValue({ error: null }),
+      update: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  })),
+}));
+
+// Mock expo-speech
+jest.mock('expo-speech', () => ({
+  speak: jest.fn((text, options) => {
+    if (options?.onDone) {
+      setTimeout(() => options.onDone(), 10);
+    }
+  }),
+  stop: jest.fn().mockResolvedValue(undefined),
+  isSpeakingAsync: jest.fn().mockResolvedValue(false),
+  getAvailableVoicesAsync: jest.fn().mockResolvedValue([
+    { identifier: 'ja-JP', name: 'Japanese', language: 'ja-JP' },
+    { identifier: 'ko-KR', name: 'Korean', language: 'ko-KR' },
+    { identifier: 'zh-CN', name: 'Chinese', language: 'zh-CN' },
+  ]),
+}));
+
 // Mock expo-av
 jest.mock('expo-av', () => ({
   Audio: {

@@ -199,7 +199,7 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
       <Animated.View
         style={[
           styles.buttonWrapper,
-          { transform: [{ scale: isRecording ? pulseAnim : 1 }] },
+          { transform: [{ scale: pulseAnim }] },
         ]}
       >
         <TouchableOpacity

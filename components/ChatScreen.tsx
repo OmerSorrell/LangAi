@@ -27,6 +27,7 @@ import { ChatBubble } from './ChatBubble';
 import { VoiceRecorder } from './VoiceRecorder';
 import { ConversationMessage } from '../agents/teacher';
 import { InteractionMode } from '../agents/prompts/system-prompt';
+import { speakForLanguageLearning, stopSpeaking } from '../services/speech';
 
 const MODES: { mode: InteractionMode; label: string; emoji: string }[] = [
   { mode: 'free_conversation', label: 'Chat', emoji: '💬' },
@@ -50,7 +51,10 @@ export function ChatScreen() {
     interactionMode,
     setInteractionMode,
     activeLanguage,
+    preferences,
   } = useStore();
+
+  const lastMessageCount = useRef(messages.length);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -60,6 +64,23 @@ export function ChatScreen() {
       }, 100);
     }
   }, [messages.length]);
+
+  // Auto-play new assistant messages
+  useEffect(() => {
+    if (
+      messages.length > lastMessageCount.current &&
+      preferences.autoPlayResponses &&
+      activeLanguage
+    ) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage?.role === 'assistant') {
+        speakForLanguageLearning(lastMessage.content, activeLanguage).catch(
+          (error) => console.error('Auto-play TTS error:', error)
+        );
+      }
+    }
+    lastMessageCount.current = messages.length;
+  }, [messages.length, preferences.autoPlayResponses, activeLanguage]);
 
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
