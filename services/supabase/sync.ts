@@ -31,7 +31,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
     return null;
   }
 
-  return data;
+  return data as unknown as Profile;
 }
 
 /**
@@ -75,7 +75,7 @@ export async function fetchPreferences(
     return null;
   }
 
-  return data;
+  return data as unknown as UserPreferences;
 }
 
 /**
@@ -147,7 +147,7 @@ export async function fetchProgress(
     return null;
   }
 
-  return data;
+  return data as unknown as LearningProgress[];
 }
 
 /**

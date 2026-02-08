@@ -290,7 +290,7 @@ export const useStore = create<AppState>()(
           if (data.preferences) {
             set({
               preferences: {
-                nativeLanguage: data.preferences.native_language || 'English',
+                nativeLanguage: data.profile?.native_language || 'English',
                 targetLanguages: data.preferences.target_languages || [],
                 proficiencyLevels: data.preferences.proficiency_levels || {
                   japanese: 'A1',

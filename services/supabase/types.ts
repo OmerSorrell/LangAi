@@ -35,6 +35,7 @@ export interface Database {
           native_language?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       user_preferences: {
         Row: {
@@ -64,6 +65,7 @@ export interface Database {
           auto_play_responses?: boolean;
           updated_at?: string;
         };
+        Relationships: [];
       };
       learning_progress: {
         Row: {
@@ -101,6 +103,7 @@ export interface Database {
           last_practice_date?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       conversation_history: {
         Row: {
@@ -123,8 +126,13 @@ export interface Database {
           messages?: ConversationMessageRecord[];
           updated_at?: string;
         };
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
 
