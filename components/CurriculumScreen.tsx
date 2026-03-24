@@ -4,7 +4,7 @@
  * Browse units and lessons, track progress, and start learning.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  Animated,
 } from 'react-native';
 import { useStore } from '../store/useStore';
 import {
@@ -23,6 +24,7 @@ import {
   Lesson,
   CurriculumProgress,
 } from '../curriculum';
+import { colors, fonts, fontSize, spacing, radius, shadows, languageColors } from '../theme';
 
 interface CurriculumScreenProps {
   onSelectLesson: (lesson: Lesson, unit: Unit) => void;
@@ -36,6 +38,16 @@ export function CurriculumScreen({ onSelectLesson, onBack }: CurriculumScreenPro
     activeLanguage ? initializeProgress(activeLanguage) : null
   );
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   if (!activeLanguage) {
     return (
       <SafeAreaView style={styles.container}>
@@ -46,23 +58,15 @@ export function CurriculumScreen({ onSelectLesson, onBack }: CurriculumScreenPro
 
   const curriculum = getCurriculum(activeLanguage);
   const level = preferences.proficiencyLevels[activeLanguage];
+  const langColor = languageColors[activeLanguage];
 
   const getLanguageEmoji = () => {
     switch (activeLanguage) {
       case 'japanese': return '🇯🇵';
       case 'korean': return '🇰🇷';
       case 'mandarin': return '🇨🇳';
-      default: return '📚';
+      default: return '';
     }
-  };
-
-  const getCertificationBadge = (cert?: string) => {
-    if (!cert) return null;
-    return (
-      <View style={styles.certBadge}>
-        <Text style={styles.certText}>{cert}</Text>
-      </View>
-    );
   };
 
   const toggleUnit = (unitId: string) => {
@@ -75,70 +79,109 @@ export function CurriculumScreen({ onSelectLesson, onBack }: CurriculumScreenPro
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
+        <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.6}>
+          <Text style={styles.backArrow}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {getLanguageEmoji()} {curriculum.name}
-        </Text>
-      </View>
-
-      {/* Progress Overview */}
-      <View style={styles.progressCard}>
-        <Text style={styles.progressTitle}>Your Progress</Text>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${overallProgress}%` }]} />
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerEmoji}>{getLanguageEmoji()}</Text>
+          <Text style={styles.headerTitle}>{curriculum.name}</Text>
         </View>
-        <Text style={styles.progressText}>
-          {overallProgress}% Complete • Level {level}
-        </Text>
+        <View style={styles.levelBadge}>
+          <Text style={[styles.levelBadgeText, { color: langColor.accent }]}>{level}</Text>
+        </View>
       </View>
 
-      {/* Units List */}
-      <ScrollView style={styles.unitsList} showsVerticalScrollIndicator={false}>
-        {curriculum.units.map((unit) => {
+      <Animated.ScrollView
+        style={[styles.scrollView, { opacity: fadeAnim }]}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Progress Overview */}
+        <View style={styles.progressCard}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressLabel}>Overall Progress</Text>
+            <Text style={[styles.progressPercent, { color: langColor.accent }]}>
+              {overallProgress}%
+            </Text>
+          </View>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${Math.max(overallProgress, 2)}%`,
+                  backgroundColor: langColor.accent,
+                },
+              ]}
+            />
+          </View>
+        </View>
+
+        {/* Units List */}
+        {curriculum.units.map((unit, unitIndex) => {
           const unitProgress = progress?.unitsProgress[unit.id];
           const completion = unitProgress ? getUnitCompletion(unitProgress) : 0;
           const isExpanded = expandedUnit === unit.id;
           const isLocked = unitProgress ? !unitProgress.unlocked : true;
 
           return (
-            <View key={unit.id} style={styles.unitCard}>
+            <View key={unit.id} style={[styles.unitCard, isLocked && styles.unitCardLocked]}>
               {/* Unit Header */}
               <TouchableOpacity
-                style={[styles.unitHeader, isLocked && styles.unitLocked]}
+                style={styles.unitHeader}
                 onPress={() => !isLocked && toggleUnit(unit.id)}
                 disabled={isLocked}
+                activeOpacity={0.7}
               >
-                <View style={styles.unitInfo}>
-                  <View style={styles.unitTitleRow}>
-                    <Text style={styles.unitNumber}>Unit {unit.number}</Text>
-                    {getCertificationBadge(unit.certification)}
-                  </View>
-                  <Text style={styles.unitTitle}>{unit.title}</Text>
-                  <Text style={styles.unitTitleNative}>{unit.titleNative}</Text>
-                  <Text style={styles.unitDescription}>{unit.description}</Text>
-                </View>
-                <View style={styles.unitProgress}>
-                  {isLocked ? (
-                    <Text style={styles.lockIcon}>🔒</Text>
-                  ) : (
-                    <>
-                      <Text style={styles.completionText}>{completion}%</Text>
-                      <Text style={styles.expandIcon}>
-                        {isExpanded ? '▼' : '▶'}
+                <View style={styles.unitLeft}>
+                  <View style={[
+                    styles.unitNumberCircle,
+                    { backgroundColor: isLocked ? colors.bgMuted : langColor.bg },
+                  ]}>
+                    {isLocked ? (
+                      <Text style={styles.lockIcon}>🔒</Text>
+                    ) : (
+                      <Text style={[styles.unitNumberText, { color: langColor.accent }]}>
+                        {unit.number}
                       </Text>
+                    )}
+                  </View>
+                  <View style={styles.unitInfo}>
+                    <Text style={[styles.unitTitle, isLocked && styles.textMuted]}>
+                      {unit.title}
+                    </Text>
+                    <Text style={styles.unitTitleNative}>{unit.titleNative}</Text>
+                    {unit.certification && (
+                      <View style={[styles.certChip, { backgroundColor: langColor.bg }]}>
+                        <Text style={[styles.certChipText, { color: langColor.accent }]}>
+                          {unit.certification}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.unitRight}>
+                  {!isLocked && (
+                    <>
+                      <Text style={[styles.completionText, { color: langColor.accent }]}>
+                        {completion}%
+                      </Text>
+                      <Text style={styles.expandIcon}>{isExpanded ? '▾' : '▸'}</Text>
                     </>
                   )}
                 </View>
               </TouchableOpacity>
 
+              {/* Description */}
+              {!isLocked && (
+                <Text style={styles.unitDescription}>{unit.description}</Text>
+              )}
+
               {/* Lessons List */}
               {isExpanded && (
                 <View style={styles.lessonsList}>
                   {unit.lessons.map((lesson, index) => {
-                    const lessonProgress =
-                      unitProgress?.lessonsProgress[lesson.id];
+                    const lessonProgress = unitProgress?.lessonsProgress[lesson.id];
                     const isCompleted = lessonProgress?.completed || false;
 
                     return (
@@ -146,8 +189,12 @@ export function CurriculumScreen({ onSelectLesson, onBack }: CurriculumScreenPro
                         key={lesson.id}
                         style={styles.lessonItem}
                         onPress={() => onSelectLesson(lesson, unit)}
+                        activeOpacity={0.7}
                       >
-                        <View style={styles.lessonNumber}>
+                        <View style={[
+                          styles.lessonNumber,
+                          isCompleted && { backgroundColor: colors.successLight },
+                        ]}>
                           {isCompleted ? (
                             <Text style={styles.checkIcon}>✓</Text>
                           ) : (
@@ -160,15 +207,16 @@ export function CurriculumScreen({ onSelectLesson, onBack }: CurriculumScreenPro
                             {lesson.titleNative}
                           </Text>
                           <View style={styles.lessonMeta}>
-                            <Text style={styles.lessonDuration}>
-                              ⏱ {lesson.estimatedMinutes} min
+                            <Text style={styles.lessonMetaText}>
+                              {lesson.estimatedMinutes} min
                             </Text>
-                            <Text style={styles.lessonVocab}>
-                              📝 {lesson.vocabulary.length} words
+                            <View style={styles.metaDot} />
+                            <Text style={styles.lessonMetaText}>
+                              {lesson.vocabulary.length} words
                             </Text>
                           </View>
                         </View>
-                        <Text style={styles.chevron}>›</Text>
+                        <Text style={[styles.chevron, { color: langColor.accent }]}>›</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -177,7 +225,7 @@ export function CurriculumScreen({ onSelectLesson, onBack }: CurriculumScreenPro
             </View>
           );
         })}
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
@@ -185,206 +233,248 @@ export function CurriculumScreen({ onSelectLesson, onBack }: CurriculumScreenPro
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   backButton: {
-    marginRight: 16,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
   },
-  backButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
+  backArrow: {
+    fontSize: 28,
+    color: colors.inkLight,
+    fontWeight: '300',
+  },
+  headerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerEmoji: {
+    fontSize: 20,
+    marginRight: spacing.sm,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: fontSize.lg,
+    fontFamily: fonts.display,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.ink,
+  },
+  levelBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bgMuted,
+  },
+  levelBadgeText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: spacing.lg,
+    paddingBottom: spacing['3xl'],
   },
   progressCard: {
-    backgroundColor: '#FFFFFF',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: colors.bgCard,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+    ...shadows.sm,
   },
-  progressTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 8,
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  progressLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: '500',
+    color: colors.inkMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  progressPercent: {
+    fontSize: fontSize.lg,
+    fontWeight: '700',
   },
   progressBar: {
-    height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    marginBottom: 8,
+    height: 6,
+    backgroundColor: colors.bgMuted,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#10B981',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 14,
-    color: '#374151',
-  },
-  unitsList: {
-    flex: 1,
-    paddingHorizontal: 16,
+    borderRadius: 3,
   },
   unitCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: colors.bgCard,
+    borderRadius: radius.lg,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+    ...shadows.sm,
+  },
+  unitCardLocked: {
+    opacity: 0.55,
   },
   unitHeader: {
     flexDirection: 'row',
-    padding: 16,
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
-  unitLocked: {
-    opacity: 0.6,
+  unitLeft: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  unitNumberCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  unitNumberText: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  lockIcon: {
+    fontSize: 14,
   },
   unitInfo: {
     flex: 1,
   },
-  unitTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  unitNumber: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#007AFF',
-    textTransform: 'uppercase',
-  },
-  certBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  certText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#D97706',
-  },
   unitTitle: {
-    fontSize: 18,
+    fontSize: fontSize.md,
+    fontFamily: fonts.display,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.ink,
     marginBottom: 2,
   },
+  textMuted: {
+    color: colors.inkMuted,
+  },
   unitTitleNative: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 4,
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
+    marginBottom: spacing.xs,
   },
-  unitDescription: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    lineHeight: 18,
+  certChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    marginTop: spacing.xs,
   },
-  unitProgress: {
-    alignItems: 'center',
-    marginLeft: 12,
+  certChipText: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  unitRight: {
+    alignItems: 'flex-end',
+    marginLeft: spacing.md,
   },
   completionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#10B981',
-    marginBottom: 4,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    marginBottom: 2,
   },
   expandIcon: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    fontSize: 14,
+    color: colors.inkFaint,
   },
-  lockIcon: {
-    fontSize: 24,
+  unitDescription: {
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
+    lineHeight: 19,
+    marginTop: spacing.sm,
+    paddingLeft: 52,
   },
   lessonsList: {
+    marginTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.borderLight,
+    paddingTop: spacing.sm,
   },
   lessonItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.borderLight,
   },
   lessonNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.bgMuted,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   lessonIndex: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.inkMuted,
   },
   checkIcon: {
-    fontSize: 16,
-    color: '#10B981',
+    fontSize: 14,
+    color: colors.success,
+    fontWeight: '700',
   },
   lessonInfo: {
     flex: 1,
   },
   lessonTitle: {
-    fontSize: 16,
+    fontSize: fontSize.base,
     fontWeight: '500',
-    color: '#111827',
-    marginBottom: 2,
+    color: colors.ink,
+    marginBottom: 1,
   },
   lessonTitleNative: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 4,
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
+    marginBottom: spacing.xs,
   },
   lessonMeta: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
-  lessonDuration: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginRight: 12,
+  lessonMetaText: {
+    fontSize: fontSize.xs,
+    color: colors.inkFaint,
   },
-  lessonVocab: {
-    fontSize: 12,
-    color: '#9CA3AF',
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.inkFaint,
+    marginHorizontal: spacing.sm,
   },
   chevron: {
-    fontSize: 24,
-    color: '#D1D5DB',
-    marginLeft: 8,
+    fontSize: 22,
+    fontWeight: '300',
+    marginLeft: spacing.sm,
   },
   errorText: {
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: fontSize.md,
+    color: colors.inkMuted,
     textAlign: 'center',
     marginTop: 40,
   },

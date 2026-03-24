@@ -6,6 +6,10 @@
  */
 
 import { supabase, isSupabaseConfigured } from './client';
+
+function getClient() {
+  return supabase!;
+}
 import {
   Profile,
   UserPreferences,
@@ -20,7 +24,7 @@ import {
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   if (!isSupabaseConfigured()) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await getClient()
     .from('profiles')
     .select('*')
     .eq('id', userId)
@@ -43,7 +47,7 @@ export async function updateProfile(
 ): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
 
-  const { error } = await supabase
+  const { error } = await getClient()
     .from('profiles')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', userId);
@@ -64,7 +68,7 @@ export async function fetchPreferences(
 ): Promise<UserPreferences | null> {
   if (!isSupabaseConfigured()) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await getClient()
     .from('user_preferences')
     .select('*')
     .eq('user_id', userId)
@@ -109,7 +113,7 @@ export async function updatePreferences(
     dbUpdates.auto_play_responses = updates.autoPlayResponses;
   }
 
-  const { error } = await supabase
+  const { error } = await getClient()
     .from('user_preferences')
     .update(dbUpdates)
     .eq('user_id', userId);
@@ -131,7 +135,7 @@ export async function fetchProgress(
 ): Promise<LearningProgress[] | null> {
   if (!isSupabaseConfigured()) return null;
 
-  let query = supabase
+  let query = getClient()
     .from('learning_progress')
     .select('*')
     .eq('user_id', userId);
@@ -190,7 +194,7 @@ export async function updateProgress(
     dbUpdates.last_practice_date = updates.lastPracticeDate;
   }
 
-  const { error } = await supabase
+  const { error } = await getClient()
     .from('learning_progress')
     .update(dbUpdates)
     .eq('user_id', userId)
@@ -215,7 +219,7 @@ export async function incrementConversationTime(
   if (!isSupabaseConfigured()) return false;
 
   // First get current value
-  const { data: current } = await supabase
+  const { data: current } = await getClient()
     .from('learning_progress')
     .select('conversation_minutes')
     .eq('user_id', userId)
@@ -240,7 +244,7 @@ export async function updateStreak(
   if (!isSupabaseConfigured()) return 0;
 
   // Get current progress
-  const { data } = await supabase
+  const { data } = await getClient()
     .from('learning_progress')
     .select('current_streak, last_practice_date')
     .eq('user_id', userId)

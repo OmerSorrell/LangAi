@@ -5,14 +5,21 @@
  * Features AI-powered conversation practice with cultural context.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Animated,
+} from 'react-native';
 import { useStore } from './store/useStore';
 import { ChatScreen } from './components/ChatScreen';
 import { LanguageSelector } from './components/LanguageSelector';
 import { AuthScreen } from './components/AuthScreen';
 import { onAuthStateChange, getSession } from './services/supabase';
+import { colors, fonts, fontSize, spacing, radius } from './theme';
 
 function AppContent() {
   const {
@@ -27,6 +34,25 @@ function AppContent() {
 
   const [showAuth, setShowAuth] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [hasCompletedOnboarding, showAuth, activeLanguage]);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -75,24 +101,42 @@ function AppContent() {
   // Show onboarding prompt for new users
   if (!isInitializing && !hasCompletedOnboarding && !showAuth) {
     return (
-      <View style={styles.onboardingContainer}>
-        <Text style={styles.onboardingTitle}>Welcome!</Text>
+      <Animated.View
+        style={[
+          styles.onboardingContainer,
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+        ]}
+      >
+        {/* Decorative seal mark */}
+        <View style={styles.sealContainer}>
+          <View style={styles.seal}>
+            <Text style={styles.sealText}>語</Text>
+          </View>
+        </View>
+
+        <Text style={styles.onboardingTitle}>Welcome</Text>
+        <Text style={styles.onboardingSubtitle}>ようこそ · 환영합니다 · 欢迎</Text>
         <Text style={styles.onboardingText}>
-          Would you like to create an account to sync your progress across devices?
+          Your personal language teacher for Japanese, Korean, and Mandarin.
+          Create an account to sync progress across devices.
         </Text>
+
         <TouchableOpacity
           style={styles.onboardingButton}
           onPress={() => setShowAuth(true)}
+          activeOpacity={0.8}
         >
           <Text style={styles.onboardingButtonText}>Create Account</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.onboardingSkip}
           onPress={() => completeOnboarding()}
+          activeOpacity={0.6}
         >
-          <Text style={styles.onboardingSkipText}>Skip for now</Text>
+          <Text style={styles.onboardingSkipText}>Continue without account</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     );
   }
 
@@ -104,14 +148,6 @@ function AppContent() {
   // Show chat screen with the active language
   return (
     <View style={styles.container}>
-      {/* Back button to language selector */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => setActiveLanguage(null as any)}
-      >
-        <Text style={styles.backButtonText}>← Change Language</Text>
-      </TouchableOpacity>
-
       <ChatScreen />
     </View>
   );
@@ -120,7 +156,7 @@ function AppContent() {
 export default function App() {
   return (
     <>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
       <AppContent />
     </>
   );
@@ -129,54 +165,74 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  backButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  backButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
+    backgroundColor: colors.bg,
   },
   onboardingContainer: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: spacing['2xl'],
+  },
+  sealContainer: {
+    marginBottom: spacing['2xl'],
+  },
+  seal: {
+    width: 88,
+    height: 88,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ rotate: '-6deg' }],
+  },
+  sealText: {
+    fontSize: 44,
+    color: colors.white,
+    fontWeight: '300',
   },
   onboardingTitle: {
-    fontSize: 32,
+    fontSize: fontSize['3xl'],
+    fontFamily: fonts.display,
     fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16,
+    color: colors.ink,
+    marginBottom: spacing.sm,
+  },
+  onboardingSubtitle: {
+    fontSize: fontSize.base,
+    color: colors.inkMuted,
+    marginBottom: spacing.xl,
+    letterSpacing: 2,
   },
   onboardingText: {
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: fontSize.base,
+    color: colors.inkLight,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: spacing['2xl'],
     lineHeight: 24,
+    maxWidth: 320,
   },
   onboardingButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    backgroundColor: colors.ink,
+    paddingHorizontal: spacing['2xl'],
+    paddingVertical: spacing.lg,
+    borderRadius: radius.lg,
+    marginBottom: spacing.lg,
+    minWidth: 240,
+    alignItems: 'center',
   },
   onboardingButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.bg,
+    fontSize: fontSize.md,
     fontWeight: '600',
+    letterSpacing: 0.5,
   },
   onboardingSkip: {
-    padding: 12,
+    padding: spacing.md,
   },
   onboardingSkipText: {
-    color: '#9CA3AF',
-    fontSize: 14,
+    color: colors.inkFaint,
+    fontSize: fontSize.sm,
+    letterSpacing: 0.3,
   },
 });

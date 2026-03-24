@@ -17,6 +17,7 @@ import {
 import { ConversationMessage, Correction } from '../agents/teacher';
 import { speakForLanguageLearning, stopSpeaking } from '../services/speech';
 import { useStore } from '../store/useStore';
+import { colors, fonts, fontSize, spacing, radius, shadows } from '../theme';
 
 interface ChatBubbleProps {
   message: ConversationMessage;
@@ -73,9 +74,9 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             activeOpacity={0.7}
           >
             {isPlaying ? (
-              <ActivityIndicator size="small" color="#007AFF" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Text style={styles.playIcon}>🔊</Text>
+              <Text style={styles.playIcon}>▶</Text>
             )}
             <Text style={styles.playText}>
               {isPlaying ? 'Stop' : 'Listen'}
@@ -86,7 +87,10 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         {/* Cultural Note */}
         {message.culturalNote && (
           <View style={styles.culturalNote}>
-            <Text style={styles.culturalNoteLabel}>Cultural Note:</Text>
+            <View style={styles.culturalNoteHeader}>
+              <View style={styles.culturalDot} />
+              <Text style={styles.culturalNoteLabel}>Cultural Insight</Text>
+            </View>
             <Text style={styles.culturalNoteText}>{message.culturalNote}</Text>
           </View>
         )}
@@ -94,7 +98,10 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         {/* Corrections */}
         {message.corrections && message.corrections.length > 0 && (
           <View style={styles.corrections}>
-            <Text style={styles.correctionsLabel}>Corrections:</Text>
+            <View style={styles.correctionsHeader}>
+              <View style={[styles.culturalDot, { backgroundColor: colors.gold }]} />
+              <Text style={styles.correctionsLabel}>Corrections</Text>
+            </View>
             {message.corrections.map((correction, index) => (
               <CorrectionItem key={index} correction={correction} />
             ))}
@@ -102,7 +109,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         )}
       </View>
 
-      <Text style={styles.timestamp}>
+      <Text style={[styles.timestamp, isUser && styles.timestampUser]}>
         {formatTime(message.timestamp)}
       </Text>
     </View>
@@ -116,10 +123,11 @@ interface CorrectionItemProps {
 function CorrectionItem({ correction }: CorrectionItemProps) {
   return (
     <View style={styles.correctionItem}>
-      <Text style={styles.correctionOriginal}>
-        "{correction.original}" →{' '}
-        <Text style={styles.correctionCorrected}>"{correction.corrected}"</Text>
-      </Text>
+      <View style={styles.correctionRow}>
+        <Text style={styles.correctionOriginal}>{correction.original}</Text>
+        <Text style={styles.correctionArrow}>→</Text>
+        <Text style={styles.correctionCorrected}>{correction.corrected}</Text>
+      </View>
       <Text style={styles.correctionExplanation}>{correction.explanation}</Text>
     </View>
   );
@@ -135,9 +143,9 @@ function formatTime(date: Date): string {
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4,
-    marginHorizontal: 12,
-    maxWidth: '80%',
+    marginVertical: spacing.xs,
+    marginHorizontal: spacing.md,
+    maxWidth: '82%',
   },
   userContainer: {
     alignSelf: 'flex-end',
@@ -146,96 +154,137 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   bubble: {
-    padding: 12,
-    borderRadius: 16,
+    padding: spacing.md,
+    borderRadius: radius.lg,
   },
   userBubble: {
-    backgroundColor: '#007AFF',
-    borderBottomRightRadius: 4,
+    backgroundColor: colors.userBubble,
+    borderBottomRightRadius: spacing.xs,
   },
   assistantBubble: {
-    backgroundColor: '#E8E8E8',
-    borderBottomLeftRadius: 4,
+    backgroundColor: colors.assistantBubble,
+    borderBottomLeftRadius: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   text: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: fontSize.md,
+    lineHeight: 23,
   },
   userText: {
-    color: '#FFFFFF',
+    color: colors.userBubbleText,
   },
   assistantText: {
-    color: '#000000',
+    color: colors.assistantBubbleText,
   },
   timestamp: {
-    fontSize: 11,
-    color: '#8E8E93',
-    marginTop: 4,
+    fontSize: fontSize.xs,
+    color: colors.inkFaint,
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  timestampUser: {
     alignSelf: 'flex-end',
-  },
-  culturalNote: {
-    marginTop: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
-  culturalNoteLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#8B5CF6',
-    marginBottom: 4,
-  },
-  culturalNoteText: {
-    fontSize: 14,
-    color: '#4B5563',
-    fontStyle: 'italic',
-  },
-  corrections: {
-    marginTop: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
-  correctionsLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#F59E0B',
-    marginBottom: 8,
-  },
-  correctionItem: {
-    marginBottom: 8,
-  },
-  correctionOriginal: {
-    fontSize: 14,
-    color: '#DC2626',
-  },
-  correctionCorrected: {
-    color: '#16A34A',
-    fontWeight: '600',
-  },
-  correctionExplanation: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-    marginLeft: 8,
   },
   playButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    borderRadius: 12,
+    marginTop: spacing.sm,
+    paddingVertical: 5,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.primaryMuted,
+    borderRadius: radius.sm,
     alignSelf: 'flex-start',
   },
   playIcon: {
-    fontSize: 14,
-    marginRight: 4,
+    fontSize: 10,
+    color: colors.primary,
+    marginRight: spacing.xs,
   },
   playText: {
-    fontSize: 12,
-    color: '#007AFF',
-    fontWeight: '500',
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  culturalNote: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  culturalNoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  culturalDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.purple,
+    marginRight: spacing.sm,
+  },
+  culturalNoteLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    color: colors.purple,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  culturalNoteText: {
+    fontSize: fontSize.sm,
+    color: colors.inkLight,
+    fontStyle: 'italic',
+    lineHeight: 19,
+  },
+  corrections: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  correctionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  correctionsLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    color: colors.gold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  correctionItem: {
+    marginBottom: spacing.sm,
+    paddingLeft: spacing.md,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.goldLight,
+  },
+  correctionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  correctionOriginal: {
+    fontSize: fontSize.sm,
+    color: colors.error,
+    textDecorationLine: 'line-through',
+  },
+  correctionArrow: {
+    fontSize: fontSize.sm,
+    color: colors.inkFaint,
+  },
+  correctionCorrected: {
+    fontSize: fontSize.sm,
+    color: colors.success,
+    fontWeight: '600',
+  },
+  correctionExplanation: {
+    fontSize: fontSize.xs,
+    color: colors.inkMuted,
+    marginTop: 2,
+    lineHeight: 17,
   },
 });

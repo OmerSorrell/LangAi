@@ -21,6 +21,7 @@ import {
   isWhisperConfigured,
 } from '../services/speech';
 import { useStore } from '../store/useStore';
+import { colors, fonts, fontSize, spacing, radius, shadows, languageColors } from '../theme';
 
 interface VoiceRecorderProps {
   onTranscription: (text: string) => void;
@@ -34,10 +35,12 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
   const [audioLevel, setAudioLevel] = useState(0);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const ringAnim = useRef(new Animated.Value(0)).current;
   const durationInterval = useRef<NodeJS.Timeout | null>(null);
   const meteringInterval = useRef<NodeJS.Timeout | null>(null);
 
   const { activeLanguage, preferences } = useStore();
+  const langColor = activeLanguage ? languageColors[activeLanguage] : languageColors.japanese;
 
   // Pulse animation while recording
   useEffect(() => {
@@ -45,25 +48,43 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 500,
+            toValue: 1.15,
+            duration: 700,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 500,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Ring expansion animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(ringAnim, {
+            toValue: 1,
+            duration: 1400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(ringAnim, {
+            toValue: 0,
+            duration: 0,
             useNativeDriver: true,
           }),
         ])
       ).start();
     } else {
       pulseAnim.setValue(1);
+      ringAnim.setValue(0);
     }
 
     return () => {
       pulseAnim.stopAnimation();
+      ringAnim.stopAnimation();
     };
-  }, [isRecording, pulseAnim]);
+  }, [isRecording]);
 
   // Duration counter while recording
   useEffect(() => {
@@ -73,7 +94,6 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
         setRecordingDuration((d) => d + 1);
       }, 1000);
 
-      // Audio level metering
       meteringInterval.current = setInterval(async () => {
         const level = await audioRecorder.getMetering();
         setAudioLevel(level);
@@ -110,10 +130,8 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
     }
 
     if (isRecording) {
-      // Stop recording and transcribe
       await stopAndTranscribe();
     } else {
-      // Start recording
       await startRecording();
     }
   };
@@ -145,13 +163,11 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
     try {
       const result = await audioRecorder.stopRecording();
 
-      // Minimum recording duration check (500ms)
       if (result.duration < 500) {
         setIsProcessing(false);
         return;
       }
 
-      // Transcribe the audio
       const transcription = await transcribeForLanguageLearning(
         result.uri,
         activeLanguage || 'japanese',
@@ -178,6 +194,16 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const ringScale = ringAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.8],
+  });
+
+  const ringOpacity = ringAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.3, 0.1, 0],
+  });
+
   return (
     <View style={styles.container}>
       {/* Recording duration */}
@@ -188,11 +214,42 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
         </View>
       )}
 
-      {/* Audio level indicator */}
+      {/* Audio level visualizer */}
       {isRecording && (
         <View style={styles.levelContainer}>
-          <View style={[styles.levelBar, { width: `${audioLevel * 100}%` }]} />
+          {[...Array(12)].map((_, i) => {
+            const threshold = (i + 1) / 12;
+            const isActive = audioLevel >= threshold;
+            return (
+              <View
+                key={i}
+                style={[
+                  styles.levelSegment,
+                  {
+                    backgroundColor: isActive
+                      ? langColor.accent
+                      : colors.borderLight,
+                    opacity: isActive ? 0.6 + (i / 12) * 0.4 : 0.3,
+                  },
+                ]}
+              />
+            );
+          })}
         </View>
+      )}
+
+      {/* Expanding ring animation */}
+      {isRecording && (
+        <Animated.View
+          style={[
+            styles.ring,
+            {
+              backgroundColor: langColor.accent,
+              transform: [{ scale: ringScale }],
+              opacity: ringOpacity,
+            },
+          ]}
+        />
       )}
 
       {/* Microphone button */}
@@ -205,17 +262,17 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
         <TouchableOpacity
           style={[
             styles.button,
-            isRecording && styles.buttonRecording,
+            { backgroundColor: isRecording ? colors.primary : colors.ink },
             (disabled || isProcessing) && styles.buttonDisabled,
           ]}
           onPress={handlePress}
           disabled={disabled || isProcessing}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={colors.bg} />
           ) : (
-            <Text style={styles.buttonIcon}>{isRecording ? '⏹' : '🎤'}</Text>
+            <Text style={styles.buttonIcon}>{isRecording ? '■' : '●'}</Text>
           )}
         </TouchableOpacity>
       </Animated.View>
@@ -235,65 +292,67 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
   },
   durationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   recordingDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
-    backgroundColor: '#EF4444',
-    marginRight: 6,
+    backgroundColor: colors.primary,
+    marginRight: spacing.sm,
   },
   durationText: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: '600',
-    color: '#EF4444',
+    color: colors.primary,
+    fontFamily: fonts.mono,
   },
   levelContainer: {
-    width: 120,
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    marginBottom: 12,
-    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginBottom: spacing.md,
+    height: 16,
   },
-  levelBar: {
-    height: '100%',
-    backgroundColor: '#10B981',
+  levelSegment: {
+    width: 3,
+    height: 16,
     borderRadius: 2,
+  },
+  ring: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    top: '50%',
+    marginTop: -8,
   },
   buttonWrapper: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   button: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007AFF',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  buttonRecording: {
-    backgroundColor: '#EF4444',
+    ...shadows.md,
   },
   buttonDisabled: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: colors.inkFaint,
   },
   buttonIcon: {
-    fontSize: 24,
+    fontSize: 20,
+    color: colors.bg,
   },
   statusText: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: fontSize.xs,
+    color: colors.inkMuted,
+    letterSpacing: 0.3,
   },
 });

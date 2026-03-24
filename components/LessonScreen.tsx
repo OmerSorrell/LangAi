@@ -4,7 +4,7 @@
  * Displays lesson content including vocabulary, grammar, and exercises.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,12 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  Animated,
 } from 'react-native';
 import { Lesson, Unit, VocabularyItem, GrammarPoint } from '../curriculum';
 import { speakForLanguageLearning, stopSpeaking } from '../services/speech';
 import { useStore } from '../store/useStore';
+import { colors, fonts, fontSize, spacing, radius, shadows, languageColors } from '../theme';
 
 interface LessonScreenProps {
   lesson: Lesson;
@@ -35,6 +37,18 @@ export function LessonScreen({
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [playingTerm, setPlayingTerm] = useState<string | null>(null);
   const { activeLanguage } = useStore();
+
+  const langColor = activeLanguage ? languageColors[activeLanguage] : languageColors.japanese;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab]);
 
   const handlePlayVocabulary = async (item: VocabularyItem) => {
     if (!activeLanguage) return;
@@ -56,7 +70,7 @@ export function LessonScreen({
   };
 
   const renderOverview = () => (
-    <ScrollView style={styles.tabContent}>
+    <Animated.ScrollView style={[styles.tabContent, { opacity: fadeAnim }]}>
       {/* Description */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>About this lesson</Text>
@@ -68,7 +82,7 @@ export function LessonScreen({
         <Text style={styles.sectionTitle}>Learning Objectives</Text>
         {lesson.objectives.map((objective, index) => (
           <View key={index} style={styles.objectiveItem}>
-            <Text style={styles.objectiveBullet}>•</Text>
+            <View style={[styles.objectiveDot, { backgroundColor: langColor.accent }]} />
             <Text style={styles.objectiveText}>{objective}</Text>
           </View>
         ))}
@@ -77,15 +91,23 @@ export function LessonScreen({
       {/* Stats */}
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{lesson.vocabulary.length}</Text>
-          <Text style={styles.statLabel}>Vocabulary</Text>
+          <Text style={[styles.statValue, { color: langColor.accent }]}>
+            {lesson.vocabulary.length}
+          </Text>
+          <Text style={styles.statLabel}>Words</Text>
         </View>
+        <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{lesson.grammarPoints.length}</Text>
+          <Text style={[styles.statValue, { color: langColor.accent }]}>
+            {lesson.grammarPoints.length}
+          </Text>
           <Text style={styles.statLabel}>Grammar</Text>
         </View>
+        <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{lesson.estimatedMinutes}</Text>
+          <Text style={[styles.statValue, { color: langColor.accent }]}>
+            {lesson.estimatedMinutes}
+          </Text>
           <Text style={styles.statLabel}>Minutes</Text>
         </View>
       </View>
@@ -93,20 +115,28 @@ export function LessonScreen({
       {/* Cultural Note */}
       {lesson.culturalNote && (
         <View style={styles.culturalNote}>
-          <Text style={styles.culturalNoteTitle}>💡 Cultural Insight</Text>
+          <View style={styles.culturalNoteHeader}>
+            <View style={styles.culturalDot} />
+            <Text style={styles.culturalNoteTitle}>Cultural Insight</Text>
+          </View>
           <Text style={styles.culturalNoteText}>{lesson.culturalNote}</Text>
         </View>
       )}
 
       {/* Start Button */}
-      <TouchableOpacity style={styles.startButton} onPress={onStartPractice}>
+      <TouchableOpacity
+        style={[styles.startButton, { backgroundColor: langColor.accent }]}
+        onPress={onStartPractice}
+        activeOpacity={0.8}
+      >
         <Text style={styles.startButtonText}>Start Practice</Text>
+        <Text style={styles.startButtonArrow}>→</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 
   const renderVocabulary = () => (
-    <ScrollView style={styles.tabContent}>
+    <Animated.ScrollView style={[styles.tabContent, { opacity: fadeAnim }]}>
       {lesson.vocabulary.map((item, index) => (
         <View key={index} style={styles.vocabCard}>
           <View style={styles.vocabHeader}>
@@ -117,11 +147,12 @@ export function LessonScreen({
               )}
             </View>
             <TouchableOpacity
-              style={styles.playButton}
+              style={[styles.playButton, { backgroundColor: langColor.bg }]}
               onPress={() => handlePlayVocabulary(item)}
+              activeOpacity={0.7}
             >
               <Text style={styles.playIcon}>
-                {playingTerm === item.term ? '⏹' : '🔊'}
+                {playingTerm === item.term ? '■' : '▶'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -136,11 +167,11 @@ export function LessonScreen({
           )}
         </View>
       ))}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 
   const renderGrammar = () => (
-    <ScrollView style={styles.tabContent}>
+    <Animated.ScrollView style={[styles.tabContent, { opacity: fadeAnim }]}>
       {lesson.grammarPoints.length === 0 ? (
         <Text style={styles.emptyText}>
           No grammar points in this lesson.
@@ -148,13 +179,17 @@ export function LessonScreen({
       ) : (
         lesson.grammarPoints.map((point, index) => (
           <View key={index} style={styles.grammarCard}>
-            <Text style={styles.grammarPattern}>{point.pattern}</Text>
+            <Text style={[styles.grammarPattern, { color: colors.purple }]}>
+              {point.pattern}
+            </Text>
             <Text style={styles.grammarMeaning}>{point.meaning}</Text>
+
             <View style={styles.formationBox}>
-              <Text style={styles.formationLabel}>Formation:</Text>
+              <Text style={styles.formationLabel}>Formation</Text>
               <Text style={styles.formationText}>{point.formation}</Text>
             </View>
-            <Text style={styles.examplesLabel}>Examples:</Text>
+
+            <Text style={styles.examplesLabel}>Examples</Text>
             {point.examples.map((example, i) => (
               <View key={i} style={styles.grammarExample}>
                 <Text style={styles.grammarSentence}>{example.sentence}</Text>
@@ -165,44 +200,54 @@ export function LessonScreen({
             ))}
             {point.notes && (
               <View style={styles.noteBox}>
-                <Text style={styles.noteText}>📝 {point.notes}</Text>
+                <Text style={styles.noteText}>{point.notes}</Text>
               </View>
             )}
           </View>
         ))
       )}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 
   const renderPractice = () => (
-    <ScrollView style={styles.tabContent}>
+    <Animated.ScrollView style={[styles.tabContent, { opacity: fadeAnim }]}>
       <View style={styles.practiceSection}>
-        <Text style={styles.practiceTitle}>Conversation Practice</Text>
+        <Text style={styles.practiceTitle}>Conversation Prompts</Text>
         <Text style={styles.practiceDescription}>
-          Practice these prompts with your AI teacher:
+          Practice these scenarios with your AI teacher:
         </Text>
         {lesson.conversationPrompts.map((prompt, index) => (
           <TouchableOpacity
             key={index}
             style={styles.promptCard}
             onPress={onStartPractice}
+            activeOpacity={0.7}
           >
-            <Text style={styles.promptNumber}>{index + 1}</Text>
+            <View style={[styles.promptNumber, { backgroundColor: langColor.bg }]}>
+              <Text style={[styles.promptNumberText, { color: langColor.accent }]}>
+                {index + 1}
+              </Text>
+            </View>
             <Text style={styles.promptText}>{prompt}</Text>
-            <Text style={styles.promptArrow}>→</Text>
+            <Text style={[styles.promptArrow, { color: langColor.accent }]}>→</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <TouchableOpacity style={styles.startButton} onPress={onStartPractice}>
+      <TouchableOpacity
+        style={[styles.startButton, { backgroundColor: langColor.accent }]}
+        onPress={onStartPractice}
+        activeOpacity={0.8}
+      >
         <Text style={styles.startButtonText}>Start Conversation</Text>
+        <Text style={styles.startButtonArrow}>→</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 
   const tabs: { key: TabType; label: string }[] = [
     { key: 'overview', label: 'Overview' },
-    { key: 'vocabulary', label: 'Vocabulary' },
+    { key: 'vocabulary', label: 'Vocab' },
     { key: 'grammar', label: 'Grammar' },
     { key: 'practice', label: 'Practice' },
   ];
@@ -211,11 +256,13 @@ export function LessonScreen({
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
+        <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.6}>
+          <Text style={styles.backArrow}>‹</Text>
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.unitLabel}>Unit {unit.number}</Text>
+          <Text style={[styles.unitLabel, { color: langColor.accent }]}>
+            Unit {unit.number}
+          </Text>
           <Text style={styles.lessonTitle}>{lesson.title}</Text>
           <Text style={styles.lessonTitleNative}>{lesson.titleNative}</Text>
         </View>
@@ -223,22 +270,29 @@ export function LessonScreen({
 
       {/* Tabs */}
       <View style={styles.tabBar}>
-        {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === tab.key && styles.tabTextActive,
-              ]}
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.tab, isActive && styles.tabActive]}
+              onPress={() => setActiveTab(tab.key)}
+              activeOpacity={0.7}
             >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.tabText,
+                  isActive && [styles.tabTextActive, { color: langColor.accent }],
+                ]}
+              >
+                {tab.label}
+              </Text>
+              {isActive && (
+                <View style={[styles.tabIndicator, { backgroundColor: langColor.accent }]} />
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Content */}
@@ -253,308 +307,367 @@ export function LessonScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.bg,
   },
   header: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
+    backgroundColor: colors.bgCard,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   backButton: {
-    marginBottom: 8,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
   },
-  backButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
+  backArrow: {
+    fontSize: 28,
+    color: colors.inkLight,
+    fontWeight: '300',
   },
   headerInfo: {},
   unitLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#007AFF',
+    fontSize: fontSize.xs,
+    fontWeight: '700',
     textTransform: 'uppercase',
-    marginBottom: 4,
+    letterSpacing: 1,
+    marginBottom: spacing.xs,
   },
   lessonTitle: {
-    fontSize: 22,
+    fontSize: fontSize.xl,
+    fontFamily: fonts.display,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.ink,
     marginBottom: 2,
   },
   lessonTitleNative: {
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: fontSize.md,
+    color: colors.inkMuted,
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     alignItems: 'center',
+    position: 'relative',
   },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#007AFF',
-  },
+  tabActive: {},
   tabText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: fontSize.sm,
+    color: colors.inkFaint,
+    fontWeight: '500',
   },
   tabTextActive: {
-    color: '#007AFF',
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: spacing.lg,
+    right: spacing.lg,
+    height: 2,
+    borderRadius: 1,
   },
   tabContent: {
     flex: 1,
-    padding: 16,
+    padding: spacing.lg,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: fontSize.md,
+    fontFamily: fonts.display,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: colors.ink,
+    marginBottom: spacing.sm,
   },
   description: {
-    fontSize: 15,
-    color: '#4B5563',
-    lineHeight: 22,
+    fontSize: fontSize.base,
+    color: colors.inkLight,
+    lineHeight: 23,
   },
   objectiveItem: {
     flexDirection: 'row',
-    marginBottom: 6,
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
   },
-  objectiveBullet: {
-    fontSize: 15,
-    color: '#10B981',
-    marginRight: 8,
+  objectiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: spacing.sm,
+    marginTop: 7,
   },
   objectiveText: {
     flex: 1,
-    fontSize: 15,
-    color: '#4B5563',
+    fontSize: fontSize.base,
+    color: colors.inkLight,
+    lineHeight: 21,
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    backgroundColor: colors.bgCard,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+    ...shadows.sm,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.borderLight,
+    marginVertical: spacing.xs,
+  },
   statValue: {
-    fontSize: 24,
+    fontSize: fontSize.xl,
     fontWeight: '700',
-    color: '#007AFF',
   },
   statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
+    fontSize: fontSize.xs,
+    color: colors.inkMuted,
+    marginTop: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   culturalNote: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    backgroundColor: colors.goldLight,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  culturalNoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  culturalDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.gold,
+    marginRight: spacing.sm,
   },
   culturalNoteTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#D97706',
-    marginBottom: 8,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.gold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   culturalNoteText: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: '#92400E',
     lineHeight: 20,
   },
   startButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 24,
+    borderRadius: radius.md,
+    paddingVertical: 16,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xl,
   },
   startButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.white,
+    fontSize: fontSize.md,
     fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  startButtonArrow: {
+    color: colors.white,
+    fontSize: fontSize.lg,
+    marginLeft: spacing.sm,
+    opacity: 0.8,
   },
   vocabCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.bgCard,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...shadows.sm,
   },
   vocabHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   vocabTermContainer: {},
   vocabTerm: {
-    fontSize: 24,
+    fontSize: fontSize.xl,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.ink,
   },
   vocabReading: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
     marginTop: 2,
   },
   playButton: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   playIcon: {
-    fontSize: 20,
+    fontSize: 12,
+    color: colors.primary,
   },
   vocabMeaning: {
-    fontSize: 16,
-    color: '#4B5563',
-    marginBottom: 8,
+    fontSize: fontSize.md,
+    color: colors.inkLight,
+    marginBottom: spacing.sm,
   },
   exampleContainer: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: colors.bgMuted,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
   exampleText: {
-    fontSize: 14,
-    color: '#111827',
-    marginBottom: 4,
+    fontSize: fontSize.sm,
+    color: colors.ink,
+    marginBottom: spacing.xs,
   },
   exampleTranslation: {
-    fontSize: 13,
-    color: '#6B7280',
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
     fontStyle: 'italic',
   },
   grammarCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: colors.bgCard,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.sm,
   },
   grammarPattern: {
-    fontSize: 20,
+    fontSize: fontSize.lg,
     fontWeight: '700',
-    color: '#7C3AED',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   grammarMeaning: {
-    fontSize: 16,
-    color: '#4B5563',
-    marginBottom: 12,
+    fontSize: fontSize.md,
+    color: colors.inkLight,
+    marginBottom: spacing.md,
   },
   formationBox: {
-    backgroundColor: '#EDE9FE',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: colors.purpleLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   formationLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#7C3AED',
-    marginBottom: 4,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    color: colors.purple,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
   },
   formationText: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: '#5B21B6',
-    fontFamily: 'monospace',
+    fontFamily: fonts.mono,
   },
   examplesLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.ink,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   grammarExample: {
-    marginBottom: 8,
-    paddingLeft: 12,
+    marginBottom: spacing.sm,
+    paddingLeft: spacing.md,
     borderLeftWidth: 2,
-    borderLeftColor: '#E5E7EB',
+    borderLeftColor: colors.purpleLight,
   },
   grammarSentence: {
-    fontSize: 15,
-    color: '#111827',
+    fontSize: fontSize.base,
+    color: colors.ink,
     marginBottom: 2,
   },
   grammarTranslation: {
-    fontSize: 13,
-    color: '#6B7280',
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
     fontStyle: 'italic',
   },
   noteBox: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
+    backgroundColor: colors.goldLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
   },
   noteText: {
-    fontSize: 13,
+    fontSize: fontSize.sm,
     color: '#92400E',
+    lineHeight: 19,
   },
   emptyText: {
-    fontSize: 15,
-    color: '#6B7280',
+    fontSize: fontSize.base,
+    color: colors.inkMuted,
     textAlign: 'center',
     marginTop: 40,
+    fontStyle: 'italic',
   },
   practiceSection: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   practiceTitle: {
-    fontSize: 18,
+    fontSize: fontSize.lg,
+    fontFamily: fonts.display,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: colors.ink,
+    marginBottom: spacing.sm,
   },
   practiceDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 16,
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
+    marginBottom: spacing.lg,
   },
   promptCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
+    backgroundColor: colors.bgCard,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
   },
   promptNumber: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#EEF2FF',
-    textAlign: 'center',
-    lineHeight: 28,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4F46E5',
-    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  promptNumberText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
   },
   promptText: {
     flex: 1,
-    fontSize: 15,
-    color: '#374151',
+    fontSize: fontSize.base,
+    color: colors.inkLight,
   },
   promptArrow: {
-    fontSize: 18,
-    color: '#007AFF',
-    marginLeft: 8,
+    fontSize: fontSize.lg,
+    marginLeft: spacing.sm,
+    fontWeight: '300',
   },
 });

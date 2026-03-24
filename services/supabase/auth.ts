@@ -7,6 +7,12 @@
 import { AuthError, Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from './client';
 
+// Helper: returns the supabase client, asserting it's non-null.
+// Only call after an isSupabaseConfigured() guard.
+function getClient() {
+  return supabase!;
+}
+
 export interface AuthResult {
   success: boolean;
   user?: User;
@@ -27,7 +33,8 @@ export async function signUp(
   }
 
   try {
-    const { data, error } = await supabase.auth.signUp({
+    const client = getClient();
+    const { data, error } = await client.auth.signUp({
       email,
       password,
       options: {
@@ -43,7 +50,7 @@ export async function signUp(
 
     // Create profile record
     if (data.user) {
-      await supabase.from('profiles').insert({
+      await client.from('profiles').insert({
         id: data.user.id,
         email: data.user.email!,
         display_name: displayName || null,
@@ -51,7 +58,7 @@ export async function signUp(
       });
 
       // Create default preferences
-      await supabase.from('user_preferences').insert({
+      await client.from('user_preferences').insert({
         user_id: data.user.id,
         target_languages: [],
         proficiency_levels: {
@@ -66,7 +73,7 @@ export async function signUp(
       // Create initial progress records for each language
       const languages = ['japanese', 'korean', 'mandarin'] as const;
       for (const language of languages) {
-        await supabase.from('learning_progress').insert({
+        await client.from('learning_progress').insert({
           user_id: data.user.id,
           language,
           vocabulary_mastered: [],
@@ -104,7 +111,7 @@ export async function signIn(
   }
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await getClient().auth.signInWithPassword({
       email,
       password,
     });
@@ -135,7 +142,7 @@ export async function signOut(): Promise<AuthResult> {
   }
 
   try {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await getClient().auth.signOut();
 
     if (error) {
       return { success: false, error: error.message };
@@ -158,7 +165,7 @@ export async function getSession(): Promise<Session | null> {
     return null;
   }
 
-  const { data } = await supabase.auth.getSession();
+  const { data } = await getClient().auth.getSession();
   return data.session;
 }
 
@@ -170,7 +177,7 @@ export async function getCurrentUser(): Promise<User | null> {
     return null;
   }
 
-  const { data } = await supabase.auth.getUser();
+  const { data } = await getClient().auth.getUser();
   return data.user;
 }
 
@@ -183,7 +190,7 @@ export async function resetPassword(email: string): Promise<AuthResult> {
   }
 
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await getClient().auth.resetPasswordForEmail(email);
 
     if (error) {
       return { success: false, error: error.message };
@@ -208,5 +215,5 @@ export function onAuthStateChange(
     return { data: { subscription: { unsubscribe: () => {} } } };
   }
 
-  return supabase.auth.onAuthStateChange(callback);
+  return getClient().auth.onAuthStateChange(callback);
 }

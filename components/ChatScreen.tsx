@@ -21,6 +21,7 @@ import {
   Platform,
   ActivityIndicator,
   SafeAreaView,
+  Animated,
 } from 'react-native';
 import { useStore } from '../store/useStore';
 import { ChatBubble } from './ChatBubble';
@@ -28,19 +29,20 @@ import { VoiceRecorder } from './VoiceRecorder';
 import { ConversationMessage } from '../agents/teacher';
 import { InteractionMode } from '../agents/prompts/system-prompt';
 import { speakForLanguageLearning, stopSpeaking } from '../services/speech';
+import { colors, fonts, fontSize, spacing, radius, shadows, languageColors } from '../theme';
 
-const MODES: { mode: InteractionMode; label: string; emoji: string }[] = [
-  { mode: 'free_conversation', label: 'Chat', emoji: '💬' },
-  { mode: 'guided_lesson', label: 'Lesson', emoji: '📚' },
-  { mode: 'exercise', label: 'Exercise', emoji: '✏️' },
-  { mode: 'correction', label: 'Correct', emoji: '🔍' },
+const MODES: { mode: InteractionMode; label: string; icon: string }[] = [
+  { mode: 'free_conversation', label: 'Chat', icon: '話' },
+  { mode: 'guided_lesson', label: 'Lesson', icon: '学' },
+  { mode: 'exercise', label: 'Practice', icon: '練' },
+  { mode: 'correction', label: 'Correct', icon: '直' },
 ];
 
 type InputMode = 'text' | 'voice';
 
 export function ChatScreen() {
   const [inputText, setInputText] = useState('');
-  const [inputMode, setInputMode] = useState<InputMode>('voice'); // Default to voice
+  const [inputMode, setInputMode] = useState<InputMode>('voice');
   const flatListRef = useRef<FlatList>(null);
 
   const {
@@ -52,9 +54,25 @@ export function ChatScreen() {
     setInteractionMode,
     activeLanguage,
     preferences,
+    setActiveLanguage,
   } = useStore();
 
   const lastMessageCount = useRef(messages.length);
+  const dotsAnim = useRef(new Animated.Value(0)).current;
+
+  // Loading dots animation
+  useEffect(() => {
+    if (isLoading) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(dotsAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(dotsAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      dotsAnim.setValue(0);
+    }
+  }, [isLoading]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -84,7 +102,6 @@ export function ChatScreen() {
 
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
-
     const text = inputText.trim();
     setInputText('');
     await sendMessage(text);
@@ -99,16 +116,23 @@ export function ChatScreen() {
     <ChatBubble message={item} />
   );
 
-  const getLanguageDisplay = () => {
+  const langColor = activeLanguage ? languageColors[activeLanguage] : languageColors.japanese;
+
+  const getLanguageLabel = () => {
     switch (activeLanguage) {
-      case 'japanese':
-        return '🇯🇵 Japanese';
-      case 'korean':
-        return '🇰🇷 Korean';
-      case 'mandarin':
-        return '🇨🇳 Mandarin';
-      default:
-        return 'Select Language';
+      case 'japanese': return '日本語';
+      case 'korean': return '한국어';
+      case 'mandarin': return '中文';
+      default: return '';
+    }
+  };
+
+  const getLanguageFlag = () => {
+    switch (activeLanguage) {
+      case 'japanese': return '🇯🇵';
+      case 'korean': return '🇰🇷';
+      case 'mandarin': return '🇨🇳';
+      default: return '';
     }
   };
 
@@ -116,34 +140,45 @@ export function ChatScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{getLanguageDisplay()}</Text>
-        <TouchableOpacity onPress={clearMessages} style={styles.clearButton}>
+        <TouchableOpacity
+          onPress={() => setActiveLanguage(null as any)}
+          style={styles.backTouchable}
+          activeOpacity={0.6}
+        >
+          <Text style={styles.backArrow}>‹</Text>
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerFlag}>{getLanguageFlag()}</Text>
+          <Text style={styles.headerTitle}>{getLanguageLabel()}</Text>
+        </View>
+        <TouchableOpacity onPress={clearMessages} style={styles.clearButton} activeOpacity={0.6}>
           <Text style={styles.clearButtonText}>Clear</Text>
         </TouchableOpacity>
       </View>
 
       {/* Mode Selector */}
       <View style={styles.modeSelector}>
-        {MODES.map(({ mode, label, emoji }) => (
-          <TouchableOpacity
-            key={mode}
-            style={[
-              styles.modeButton,
-              interactionMode === mode && styles.modeButtonActive,
-            ]}
-            onPress={() => setInteractionMode(mode)}
-          >
-            <Text style={styles.modeEmoji}>{emoji}</Text>
-            <Text
+        {MODES.map(({ mode, label, icon }) => {
+          const isActive = interactionMode === mode;
+          return (
+            <TouchableOpacity
+              key={mode}
               style={[
-                styles.modeLabel,
-                interactionMode === mode && styles.modeLabelActive,
+                styles.modeButton,
+                isActive && [styles.modeButtonActive, { backgroundColor: langColor.accent }],
               ]}
+              onPress={() => setInteractionMode(mode)}
+              activeOpacity={0.7}
             >
-              {label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text style={[styles.modeIcon, isActive && styles.modeIconActive]}>
+                {icon}
+              </Text>
+              <Text style={[styles.modeLabel, isActive && styles.modeLabelActive]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Messages */}
@@ -159,14 +194,28 @@ export function ChatScreen() {
           keyExtractor={(_, index) => index.toString()}
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>筆</Text>
+              <Text style={styles.emptyTitle}>Start a conversation</Text>
+              <Text style={styles.emptyText}>
+                {inputMode === 'voice'
+                  ? 'Tap the microphone to speak'
+                  : 'Type a message below'}
+              </Text>
+            </View>
+          }
         />
 
         {/* Loading indicator */}
         {isLoading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#007AFF" />
-            <Text style={styles.loadingText}>Thinking...</Text>
-          </View>
+          <Animated.View style={[styles.loadingContainer, { opacity: dotsAnim }]}>
+            <View style={styles.loadingDots}>
+              <View style={[styles.dot, { backgroundColor: langColor.accent }]} />
+              <View style={[styles.dot, styles.dotMiddle, { backgroundColor: langColor.accent }]} />
+              <View style={[styles.dot, { backgroundColor: langColor.accent }]} />
+            </View>
+          </Animated.View>
         )}
 
         {/* Input Mode Toggle */}
@@ -177,14 +226,12 @@ export function ChatScreen() {
               inputMode === 'voice' && styles.inputModeButtonActive,
             ]}
             onPress={() => setInputMode('voice')}
+            activeOpacity={0.7}
           >
-            <Text style={styles.inputModeIcon}>🎤</Text>
-            <Text
-              style={[
-                styles.inputModeText,
-                inputMode === 'voice' && styles.inputModeTextActive,
-              ]}
-            >
+            <Text style={[
+              styles.inputModeLabel,
+              inputMode === 'voice' && styles.inputModeLabelActive,
+            ]}>
               Voice
             </Text>
           </TouchableOpacity>
@@ -194,14 +241,12 @@ export function ChatScreen() {
               inputMode === 'text' && styles.inputModeButtonActive,
             ]}
             onPress={() => setInputMode('text')}
+            activeOpacity={0.7}
           >
-            <Text style={styles.inputModeIcon}>⌨️</Text>
-            <Text
-              style={[
-                styles.inputModeText,
-                inputMode === 'text' && styles.inputModeTextActive,
-              ]}
-            >
+            <Text style={[
+              styles.inputModeLabel,
+              inputMode === 'text' && styles.inputModeLabelActive,
+            ]}>
               Type
             </Text>
           </TouchableOpacity>
@@ -225,7 +270,7 @@ export function ChatScreen() {
               value={inputText}
               onChangeText={setInputText}
               placeholder="Type your message..."
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={colors.inkFaint}
               multiline
               maxLength={1000}
               editable={!isLoading}
@@ -235,12 +280,14 @@ export function ChatScreen() {
             <TouchableOpacity
               style={[
                 styles.sendButton,
+                { backgroundColor: langColor.accent },
                 (!inputText.trim() || isLoading) && styles.sendButtonDisabled,
               ]}
               onPress={handleSend}
               disabled={!inputText.trim() || isLoading}
+              activeOpacity={0.8}
             >
-              <Text style={styles.sendButtonText}>Send</Text>
+              <Text style={styles.sendButtonText}>→</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -252,149 +299,199 @@ export function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.border,
+  },
+  backTouchable: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backArrow: {
+    fontSize: 28,
+    color: colors.inkLight,
+    fontWeight: '300',
+  },
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerFlag: {
+    fontSize: 18,
+    marginRight: spacing.sm,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: fontSize.lg,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.ink,
+    letterSpacing: 1,
   },
   clearButton: {
-    padding: 8,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
   },
   clearButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
+    color: colors.inkMuted,
+    fontSize: fontSize.sm,
   },
   modeSelector: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.border,
+    gap: spacing.sm,
   },
   modeButton: {
+    flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    backgroundColor: 'transparent',
   },
   modeButtonActive: {
-    backgroundColor: '#E8F2FF',
+    backgroundColor: colors.primary,
   },
-  modeEmoji: {
-    fontSize: 20,
+  modeIcon: {
+    fontSize: 16,
+    color: colors.inkMuted,
     marginBottom: 2,
   },
+  modeIconActive: {
+    color: colors.white,
+  },
   modeLabel: {
-    fontSize: 12,
-    color: '#8E8E93',
+    fontSize: fontSize.xs,
+    color: colors.inkMuted,
+    fontWeight: '500',
   },
   modeLabelActive: {
-    color: '#007AFF',
+    color: colors.white,
     fontWeight: '600',
   },
   messagesContainer: {
     flex: 1,
   },
   messagesList: {
-    paddingVertical: 16,
+    paddingVertical: spacing.lg,
+    flexGrow: 1,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing['3xl'],
+  },
+  emptyIcon: {
+    fontSize: 40,
+    color: colors.inkFaint,
+    marginBottom: spacing.lg,
+    opacity: 0.4,
+  },
+  emptyTitle: {
+    fontSize: fontSize.lg,
+    fontFamily: fonts.display,
+    color: colors.inkMuted,
+    marginBottom: spacing.sm,
+  },
+  emptyText: {
+    fontSize: fontSize.sm,
+    color: colors.inkFaint,
   },
   loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  loadingDots: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
+    gap: 6,
   },
-  loadingText: {
-    marginLeft: 8,
-    color: '#8E8E93',
-    fontSize: 14,
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    opacity: 0.6,
+  },
+  dotMiddle: {
+    opacity: 0.4,
   },
   inputModeToggle: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-    backgroundColor: '#F9FAFB',
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.bgMuted,
+    gap: spacing.xs,
   },
   inputModeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    marginHorizontal: 8,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    backgroundColor: 'transparent',
   },
   inputModeButtonActive: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#007AFF',
+    backgroundColor: colors.bgCard,
+    ...shadows.sm,
   },
-  inputModeIcon: {
-    fontSize: 16,
-    marginRight: 6,
+  inputModeLabel: {
+    fontSize: fontSize.sm,
+    color: colors.inkFaint,
+    fontWeight: '500',
   },
-  inputModeText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  inputModeTextActive: {
-    color: '#007AFF',
+  inputModeLabelActive: {
+    color: colors.ink,
     fontWeight: '600',
   },
   voiceInputContainer: {
-    paddingVertical: 16,
-    backgroundColor: '#F9FAFB',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
+    paddingVertical: spacing.md,
+    backgroundColor: colors.bgMuted,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.bgCard,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: colors.border,
   },
   input: {
     flex: 1,
     minHeight: 40,
     maxHeight: 100,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 10,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 20,
-    fontSize: 16,
-    color: '#000000',
+    backgroundColor: colors.bgInput,
+    borderRadius: radius.xl,
+    fontSize: fontSize.md,
+    color: colors.ink,
   },
   sendButton: {
-    marginLeft: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#007AFF',
+    marginLeft: spacing.sm,
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#C7C7CC',
+    backgroundColor: colors.inkFaint,
+    opacity: 0.5,
   },
   sendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.white,
+    fontSize: fontSize.lg,
     fontWeight: '600',
   },
 });

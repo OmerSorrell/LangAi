@@ -4,7 +4,7 @@
  * Handles user login and signup with Supabase.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Animated,
 } from 'react-native';
 import { signIn, signUp, isSupabaseConfigured } from '../services/supabase';
+import { colors, fonts, fontSize, spacing, radius, shadows } from '../theme';
 
 type AuthMode = 'login' | 'signup';
 
@@ -33,6 +35,24 @@ export function AuthScreen({ onAuthSuccess, onSkip }: AuthScreenProps) {
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handleSubmit = async () => {
     setError(null);
@@ -76,10 +96,12 @@ export function AuthScreen({ onAuthSuccess, onSkip }: AuthScreenProps) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
+          <View style={styles.iconContainer}>
+            <Text style={styles.icon}>☁</Text>
+          </View>
           <Text style={styles.title}>Cloud Sync</Text>
           <Text style={styles.subtitle}>
-            Cloud sync is not configured. You can still use the app with local
-            storage.
+            Cloud sync is not configured. You can still use the app with local storage.
           </Text>
           <TouchableOpacity style={styles.primaryButton} onPress={onSkip}>
             <Text style={styles.primaryButtonText}>Continue Without Account</Text>
@@ -95,16 +117,23 @@ export function AuthScreen({ onAuthSuccess, onSkip }: AuthScreenProps) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <View style={styles.content}>
+        <Animated.View
+          style={[
+            styles.content,
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.logo}>🌏</Text>
+            <View style={styles.sealSmall}>
+              <Text style={styles.sealText}>語</Text>
+            </View>
             <Text style={styles.title}>
               {mode === 'login' ? 'Welcome Back' : 'Create Account'}
             </Text>
             <Text style={styles.subtitle}>
               {mode === 'login'
-                ? 'Sign in to sync your progress across devices'
+                ? 'Sign in to continue your learning journey'
                 : 'Start your language learning journey'}
             </Text>
           </View>
@@ -112,48 +141,62 @@ export function AuthScreen({ onAuthSuccess, onSkip }: AuthScreenProps) {
           {/* Form */}
           <View style={styles.form}>
             {mode === 'signup' && (
-              <TextInput
-                style={styles.input}
-                placeholder="Display Name (optional)"
-                placeholderTextColor="#9CA3AF"
-                value={displayName}
-                onChangeText={setDisplayName}
-                autoCapitalize="words"
-                editable={!isLoading}
-              />
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your name (optional)"
+                  placeholderTextColor={colors.inkFaint}
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  autoCapitalize="words"
+                  editable={!isLoading}
+                />
+              </View>
             )}
 
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#9CA3AF"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-            />
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="you@example.com"
+                placeholderTextColor={colors.inkFaint}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isLoading}
+              />
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#9CA3AF"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              editable={!isLoading}
-            />
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor={colors.inkFaint}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!isLoading}
+              />
+            </View>
 
-            {error && <Text style={styles.error}>{error}</Text>}
+            {error && (
+              <View style={styles.errorContainer}>
+                <Text style={styles.error}>{error}</Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
               onPress={handleSubmit}
               disabled={isLoading}
+              activeOpacity={0.8}
             >
               {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={colors.bg} />
               ) : (
                 <Text style={styles.primaryButtonText}>
                   {mode === 'login' ? 'Sign In' : 'Create Account'}
@@ -176,15 +219,23 @@ export function AuthScreen({ onAuthSuccess, onSkip }: AuthScreenProps) {
             </TouchableOpacity>
           </View>
 
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
           {/* Skip Option */}
           <TouchableOpacity
             style={styles.skipButton}
             onPress={onSkip}
             disabled={isLoading}
+            activeOpacity={0.6}
           >
             <Text style={styles.skipText}>Continue without account</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -193,91 +244,142 @@ export function AuthScreen({ onAuthSuccess, onSkip }: AuthScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.bg,
   },
   keyboardView: {
     flex: 1,
   },
   content: {
     flex: 1,
-    padding: 24,
+    padding: spacing.xl,
     justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: spacing['2xl'],
   },
-  logo: {
-    fontSize: 64,
-    marginBottom: 16,
+  sealSmall: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    transform: [{ rotate: '-6deg' }],
+  },
+  sealText: {
+    fontSize: 30,
+    color: colors.white,
+    fontWeight: '300',
+  },
+  iconContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  icon: {
+    fontSize: 48,
   },
   title: {
-    fontSize: 28,
+    fontSize: fontSize.xl,
+    fontFamily: fonts.display,
     fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
+    color: colors.ink,
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: fontSize.base,
+    color: colors.inkMuted,
     textAlign: 'center',
+    lineHeight: 22,
   },
   form: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
+  },
+  inputWrapper: {
+    marginBottom: spacing.md,
+  },
+  inputLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: '500',
+    color: colors.inkLight,
+    marginBottom: spacing.xs,
+    marginLeft: spacing.xs,
   },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bgCard,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 14,
-    fontSize: 16,
-    color: '#111827',
-    marginBottom: 12,
+    fontSize: fontSize.md,
+    color: colors.ink,
+  },
+  errorContainer: {
+    backgroundColor: colors.errorLight,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   error: {
-    color: '#DC2626',
-    fontSize: 14,
-    marginBottom: 12,
+    color: colors.error,
+    fontSize: fontSize.sm,
     textAlign: 'center',
   },
   primaryButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
+    backgroundColor: colors.ink,
+    borderRadius: radius.md,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   buttonDisabled: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: colors.inkFaint,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.bg,
+    fontSize: fontSize.md,
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
   toggleContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   toggleText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
   },
   toggleLink: {
-    fontSize: 14,
-    color: '#007AFF',
+    fontSize: fontSize.sm,
+    color: colors.primary,
     fontWeight: '600',
-    marginLeft: 4,
+    marginLeft: spacing.xs,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    fontSize: fontSize.sm,
+    color: colors.inkFaint,
+    paddingHorizontal: spacing.md,
   },
   skipButton: {
     alignItems: 'center',
   },
   skipText: {
-    fontSize: 14,
-    color: '#9CA3AF',
+    fontSize: fontSize.sm,
+    color: colors.inkFaint,
+    letterSpacing: 0.3,
   },
 });
