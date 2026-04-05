@@ -26,6 +26,7 @@ import {
 import { useStore } from '../store/useStore';
 import { ChatBubble } from './ChatBubble';
 import { VoiceRecorder } from './VoiceRecorder';
+import { ListeningPracticeScreen } from './ListeningPracticeScreen';
 import { ConversationMessage } from '../agents/teacher';
 import { InteractionMode } from '../agents/prompts/system-prompt';
 import { speakForLanguageLearning, stopSpeaking } from '../services/speech';
@@ -43,6 +44,7 @@ type InputMode = 'text' | 'voice';
 export function ChatScreen() {
   const [inputText, setInputText] = useState('');
   const [inputMode, setInputMode] = useState<InputMode>('voice');
+  const [showListening, setShowListening] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const {
@@ -116,6 +118,11 @@ export function ChatScreen() {
     <ChatBubble message={item} />
   );
 
+  // Show listening practice screen
+  if (showListening) {
+    return <ListeningPracticeScreen onBack={() => setShowListening(false)} />;
+  }
+
   const langColor = activeLanguage ? languageColors[activeLanguage] : languageColors.japanese;
 
   const getLanguageLabel = () => {
@@ -179,6 +186,14 @@ export function ChatScreen() {
             </TouchableOpacity>
           );
         })}
+        <TouchableOpacity
+          style={[styles.modeButton, styles.listeningButton]}
+          onPress={() => setShowListening(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.modeIcon, { color: langColor.accent }]}>聴</Text>
+          <Text style={[styles.modeLabel, { color: langColor.accent, fontWeight: '600' }]}>Listen</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Messages */}
@@ -362,6 +377,10 @@ const styles = StyleSheet.create({
   },
   modeButtonActive: {
     backgroundColor: colors.primary,
+  },
+  listeningButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modeIcon: {
     fontSize: 16,

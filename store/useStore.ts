@@ -47,6 +47,21 @@ export interface LearningProgress {
   lastPracticeDate: string | null;
 }
 
+export interface FlashcardItem {
+  id: string;
+  term: string;
+  reading?: string;
+  meaning: string;
+  context?: string;
+  language: SupportedLanguage;
+  level: ProficiencyLevel;
+  addedAt: string;
+  nextReviewAt: string;
+  repetitions: number;
+  easeFactor: number;
+  interval: number;
+}
+
 interface AppState {
   // User preferences
   preferences: UserPreferences;
@@ -76,6 +91,14 @@ interface AppState {
     language: SupportedLanguage,
     update: Partial<LearningProgress>
   ) => void;
+
+  // Flashcards
+  flashcards: FlashcardItem[];
+  addFlashcard: (card: Omit<FlashcardItem, 'id' | 'addedAt' | 'nextReviewAt' | 'repetitions' | 'easeFactor' | 'interval'>) => void;
+  removeFlashcard: (id: string) => void;
+  updateFlashcard: (id: string, update: Partial<FlashcardItem>) => void;
+  getFlashcardsForLanguage: (language: SupportedLanguage) => FlashcardItem[];
+  reviewFlashcard: (id: string, quality: number) => void;
 
   // Onboarding
   hasCompletedOnboarding: boolean;
@@ -246,6 +269,73 @@ export const useStore = create<AppState>()(
           },
         })),
 
+      // Flashcards
+      flashcards: [],
+      addFlashcard: (card) => {
+        const now = new Date().toISOString();
+        const newCard: FlashcardItem = {
+          ...card,
+          id: `fc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          addedAt: now,
+          nextReviewAt: now,
+          repetitions: 0,
+          easeFactor: 2.5,
+          interval: 1,
+        };
+        set((state) => {
+          // Don't add duplicates (same term + language)
+          const exists = state.flashcards.some(
+            (fc) => fc.term === card.term && fc.language === card.language
+          );
+          if (exists) return state;
+          return { flashcards: [...state.flashcards, newCard] };
+        });
+      },
+      removeFlashcard: (id) =>
+        set((state) => ({
+          flashcards: state.flashcards.filter((fc) => fc.id !== id),
+        })),
+      updateFlashcard: (id, update) =>
+        set((state) => ({
+          flashcards: state.flashcards.map((fc) =>
+            fc.id === id ? { ...fc, ...update } : fc
+          ),
+        })),
+      getFlashcardsForLanguage: (language) => {
+        return get().flashcards.filter((fc) => fc.language === language);
+      },
+      reviewFlashcard: (id, quality) => {
+        // SM-2 spaced repetition algorithm
+        set((state) => ({
+          flashcards: state.flashcards.map((fc) => {
+            if (fc.id !== id) return fc;
+            let { easeFactor, interval, repetitions } = fc;
+            if (quality >= 3) {
+              if (repetitions === 0) interval = 1;
+              else if (repetitions === 1) interval = 6;
+              else interval = Math.round(interval * easeFactor);
+              repetitions++;
+            } else {
+              repetitions = 0;
+              interval = 1;
+            }
+            easeFactor = Math.max(
+              1.3,
+              easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+            );
+            const nextReview = new Date();
+            nextReview.setDate(nextReview.getDate() + interval);
+            return {
+              ...fc,
+              easeFactor,
+              interval,
+              repetitions,
+              nextReviewAt: nextReview.toISOString(),
+            };
+          }),
+        }));
+      },
+
       // Onboarding
       hasCompletedOnboarding: false,
       completeOnboarding: () => set({ hasCompletedOnboarding: true }),
@@ -340,6 +430,7 @@ export const useStore = create<AppState>()(
         preferences: state.preferences,
         activeLanguage: state.activeLanguage,
         progress: state.progress,
+        flashcards: state.flashcards,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         userId: state.userId,
         isAuthenticated: state.isAuthenticated,
@@ -361,6 +452,7 @@ export const useStore = create<AppState>()(
                 mandarin: { ...currentState.progress.mandarin, ...persisted.progress.mandarin },
               } : {}),
             },
+            flashcards: persisted.flashcards ?? currentState.flashcards,
             hasCompletedOnboarding: persisted.hasCompletedOnboarding ?? currentState.hasCompletedOnboarding,
             userId: persisted.userId ?? currentState.userId,
             isAuthenticated: persisted.isAuthenticated ?? currentState.isAuthenticated,
