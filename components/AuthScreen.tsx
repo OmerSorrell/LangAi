@@ -281,11 +281,12 @@ const styles = StyleSheet.create({
     fontSize: 48,
   },
   title: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize['2xl'],
     fontFamily: fonts.display,
     fontWeight: '700',
     color: colors.ink,
     marginBottom: spacing.sm,
+    letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: fontSize.base,

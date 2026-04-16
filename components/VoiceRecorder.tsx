@@ -238,44 +238,39 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
         </View>
       )}
 
-      {/* Expanding ring animation */}
-      {isRecording && (
-        <Animated.View
-          style={[
-            styles.ring,
-            {
-              backgroundColor: langColor.accent,
-              transform: [{ scale: ringScale }],
-              opacity: ringOpacity,
-            },
-          ]}
-        />
-      )}
-
-      {/* Microphone button */}
-      <Animated.View
-        style={[
-          styles.buttonWrapper,
-          { transform: [{ scale: pulseAnim }] },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.button,
-            { backgroundColor: isRecording ? colors.primary : colors.ink },
-            (disabled || isProcessing) && styles.buttonDisabled,
-          ]}
-          onPress={handlePress}
-          disabled={disabled || isProcessing}
-          activeOpacity={0.8}
-        >
-          {isProcessing ? (
-            <ActivityIndicator size="small" color={colors.bg} />
-          ) : (
-            <Text style={styles.buttonIcon}>{isRecording ? '■' : '●'}</Text>
-          )}
-        </TouchableOpacity>
-      </Animated.View>
+      {/* Button + ring — ring is absolutely positioned relative to button */}
+      <View style={styles.buttonWrapper}>
+        {isRecording && (
+          <Animated.View
+            style={[
+              styles.ring,
+              {
+                backgroundColor: langColor.accent,
+                transform: [{ scale: ringScale }],
+                opacity: ringOpacity,
+              },
+            ]}
+          />
+        )}
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+          <TouchableOpacity
+            style={[
+              styles.button,
+              { backgroundColor: isRecording ? colors.primary : colors.ink },
+              (disabled || isProcessing) && styles.buttonDisabled,
+            ]}
+            onPress={handlePress}
+            disabled={disabled || isProcessing}
+            activeOpacity={0.8}
+          >
+            {isProcessing ? (
+              <ActivityIndicator size="small" color={colors.bg} />
+            ) : (
+              <Text style={styles.buttonIcon}>{isRecording ? '■' : '●'}</Text>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
 
       {/* Status text */}
       <Text style={styles.statusText}>
@@ -329,11 +324,15 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    top: '50%',
-    marginTop: -8,
+    top: 0,
+    left: 0,
   },
   buttonWrapper: {
+    width: 64,
+    height: 64,
     marginBottom: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   button: {
     width: 64,

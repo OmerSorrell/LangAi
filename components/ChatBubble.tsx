@@ -66,21 +66,19 @@ export function ChatBubble({ message }: ChatBubbleProps) {
           {message.content}
         </Text>
 
-        {/* Play button for assistant messages */}
+        {/* Play button for assistant messages — subtle icon tucked to right */}
         {!isUser && (
           <TouchableOpacity
             style={styles.playButton}
             onPress={handlePlayAudio}
-            activeOpacity={0.7}
+            activeOpacity={0.6}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             {isPlaying ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <Text style={styles.playIcon}>▶</Text>
             )}
-            <Text style={styles.playText}>
-              {isPlaying ? 'Stop' : 'Listen'}
-            </Text>
           </TouchableOpacity>
         )}
 
@@ -109,9 +107,11 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         )}
       </View>
 
-      <Text style={[styles.timestamp, isUser && styles.timestampUser]}>
-        {formatTime(message.timestamp)}
-      </Text>
+      {isUser && (
+        <Text style={[styles.timestamp, styles.timestampUser]}>
+          {formatTime(message.timestamp)}
+        </Text>
+      )}
     </View>
   );
 }
@@ -166,6 +166,8 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: spacing.xs,
     borderWidth: 1,
     borderColor: colors.borderLight,
+    paddingRight: 36, // room for the floating play button
+    paddingBottom: spacing.md + 8,
   },
   text: {
     fontSize: fontSize.md,
@@ -187,24 +189,20 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   playButton: {
-    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: spacing.sm,
-    paddingVertical: 5,
-    paddingHorizontal: spacing.sm,
+    justifyContent: 'center',
     backgroundColor: colors.primaryMuted,
-    borderRadius: radius.sm,
-    alignSelf: 'flex-start',
   },
   playIcon: {
-    fontSize: 10,
+    fontSize: 9,
     color: colors.primary,
-    marginRight: spacing.xs,
-  },
-  playText: {
-    fontSize: fontSize.xs,
-    color: colors.primary,
-    fontWeight: '600',
+    marginLeft: 1, // optical center for play triangle
   },
   culturalNote: {
     marginTop: spacing.md,

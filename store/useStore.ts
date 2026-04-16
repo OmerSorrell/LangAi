@@ -100,6 +100,17 @@ interface AppState {
   getFlashcardsForLanguage: (language: SupportedLanguage) => FlashcardItem[];
   reviewFlashcard: (id: string, quality: number) => void;
 
+  // Practice mastery — per-skill progress tracking
+  mastery: {
+    kanaLearned: string[];           // list of romaji strings mastered
+    kanjiLearned: string[];          // list of kanji chars mastered
+    numbersLearned: number[];        // list of numbers mastered
+  };
+  markKanaLearned: (romaji: string) => void;
+  markKanjiLearned: (char: string) => void;
+  markNumberLearned: (n: number) => void;
+  resetMastery: (skill: 'kana' | 'kanji' | 'numbers') => void;
+
   // Onboarding
   hasCompletedOnboarding: boolean;
   completeOnboarding: () => void;
@@ -336,6 +347,45 @@ export const useStore = create<AppState>()(
         }));
       },
 
+      // Practice mastery
+      mastery: { kanaLearned: [], kanjiLearned: [], numbersLearned: [] },
+      markKanaLearned: (romaji) =>
+        set((state) => ({
+          mastery: {
+            ...state.mastery,
+            kanaLearned: state.mastery.kanaLearned.includes(romaji)
+              ? state.mastery.kanaLearned
+              : [...state.mastery.kanaLearned, romaji],
+          },
+        })),
+      markKanjiLearned: (char) =>
+        set((state) => ({
+          mastery: {
+            ...state.mastery,
+            kanjiLearned: state.mastery.kanjiLearned.includes(char)
+              ? state.mastery.kanjiLearned
+              : [...state.mastery.kanjiLearned, char],
+          },
+        })),
+      markNumberLearned: (n) =>
+        set((state) => ({
+          mastery: {
+            ...state.mastery,
+            numbersLearned: state.mastery.numbersLearned.includes(n)
+              ? state.mastery.numbersLearned
+              : [...state.mastery.numbersLearned, n],
+          },
+        })),
+      resetMastery: (skill) =>
+        set((state) => ({
+          mastery: {
+            ...state.mastery,
+            ...(skill === 'kana' && { kanaLearned: [] }),
+            ...(skill === 'kanji' && { kanjiLearned: [] }),
+            ...(skill === 'numbers' && { numbersLearned: [] }),
+          },
+        })),
+
       // Onboarding
       hasCompletedOnboarding: false,
       completeOnboarding: () => set({ hasCompletedOnboarding: true }),
@@ -431,6 +481,7 @@ export const useStore = create<AppState>()(
         activeLanguage: state.activeLanguage,
         progress: state.progress,
         flashcards: state.flashcards,
+        mastery: state.mastery,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         userId: state.userId,
         isAuthenticated: state.isAuthenticated,
@@ -453,6 +504,13 @@ export const useStore = create<AppState>()(
               } : {}),
             },
             flashcards: persisted.flashcards ?? currentState.flashcards,
+            mastery: persisted.mastery
+              ? {
+                  kanaLearned: persisted.mastery.kanaLearned ?? [],
+                  kanjiLearned: persisted.mastery.kanjiLearned ?? [],
+                  numbersLearned: persisted.mastery.numbersLearned ?? [],
+                }
+              : currentState.mastery,
             hasCompletedOnboarding: persisted.hasCompletedOnboarding ?? currentState.hasCompletedOnboarding,
             userId: persisted.userId ?? currentState.userId,
             isAuthenticated: persisted.isAuthenticated ?? currentState.isAuthenticated,

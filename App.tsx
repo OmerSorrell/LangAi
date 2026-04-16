@@ -114,10 +114,11 @@ function AppContent() {
           </View>
         </View>
 
-        <Text style={styles.onboardingTitle}>Welcome</Text>
-        <Text style={styles.onboardingSubtitle}>ようこそ · 환영합니다 · 欢迎</Text>
+        <Text style={styles.onboardingGreeting}>ようこそ</Text>
+        <View style={styles.onboardingRule} />
+        <Text style={styles.onboardingSubtitle}>환영합니다 · 欢迎 · Welcome</Text>
         <Text style={styles.onboardingText}>
-          Your personal language teacher for Japanese, Korean, and Mandarin.
+          Your personal teacher for Japanese, Korean, and Mandarin.
           Create an account to sync progress across devices.
         </Text>
 
@@ -191,18 +192,26 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '300',
   },
-  onboardingTitle: {
-    fontSize: fontSize['3xl'],
+  onboardingGreeting: {
+    fontSize: fontSize.hero,
     fontFamily: fonts.display,
-    fontWeight: '700',
+    fontWeight: '400',
     color: colors.ink,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    letterSpacing: 4,
+  },
+  onboardingRule: {
+    width: 40,
+    height: 1,
+    backgroundColor: colors.primary,
+    marginBottom: spacing.md,
   },
   onboardingSubtitle: {
-    fontSize: fontSize.base,
+    fontSize: fontSize.sm,
     color: colors.inkMuted,
     marginBottom: spacing.xl,
-    letterSpacing: 2,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
   },
   onboardingText: {
     fontSize: fontSize.base,

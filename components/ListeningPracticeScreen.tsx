@@ -23,6 +23,7 @@ import {
 import { useStore } from '../store/useStore';
 import { speakForLanguageLearning, stopSpeaking } from '../services/speech';
 import { getRandomSentence, JLPTLevel } from '../curriculum/listening-bank';
+import { getParticleInfo, looksLikeParticleLabel, ParticleInfo } from '../curriculum/particles';
 import { colors, fonts, fontSize, spacing, radius, shadows, languageColors } from '../theme';
 import { ProficiencyLevel } from '../agents/prompts/system-prompt';
 
@@ -202,6 +203,23 @@ export function ListeningPracticeScreen({ onBack }: Props) {
     if (!isCorrect) {
       setUnknownWords((prev) => [...prev, currentWordIndex]);
     }
+  };
+
+  // User knows a particle — mark as understood without input
+  const markWordKnown = () => {
+    if (!sentence) return;
+    const newResults = { ...wordResults, [currentWordIndex]: true };
+    setWordResults(newResults);
+    setWordAnswer('');
+  };
+
+  // User doesn't know the word — mark as unknown and reveal meaning
+  const markWordUnknown = () => {
+    if (!sentence) return;
+    const newResults = { ...wordResults, [currentWordIndex]: false };
+    setWordResults(newResults);
+    setUnknownWords((prev) => [...prev, currentWordIndex]);
+    setWordAnswer('');
   };
 
   const nextWord = () => {
@@ -505,26 +523,52 @@ export function ListeningPracticeScreen({ onBack }: Props) {
           </TouchableOpacity>
 
           {wordResults[currentWordIndex] === undefined ? (
-            <>
-              <TextInput
-                style={styles.wordInput}
-                value={wordAnswer}
-                onChangeText={setWordAnswer}
-                placeholder="What does this mean?"
-                placeholderTextColor={colors.inkFaint}
-                autoFocus
-                onSubmitEditing={checkWordAnswer}
-                returnKeyType="done"
-              />
-              <TouchableOpacity
-                style={[styles.checkButton, { backgroundColor: langColor.accent }, !wordAnswer.trim() && styles.startButtonDisabled]}
-                onPress={checkWordAnswer}
-                disabled={!wordAnswer.trim()}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.checkButtonText}>Check</Text>
-              </TouchableOpacity>
-            </>
+            (() => {
+              const currentWord = words[currentWordIndex];
+              const particleInfo = getParticleInfo(currentWord.word);
+              const isParticleWord = particleInfo !== null ||
+                (currentWord.word.length <= 2 && looksLikeParticleLabel(currentWord.meaning));
+
+              if (isParticleWord && particleInfo) {
+                return (
+                  <ParticleExplainer
+                    info={particleInfo}
+                    onGotIt={markWordKnown}
+                    onAddToDeck={markWordUnknown}
+                  />
+                );
+              }
+
+              return (
+                <>
+                  <TextInput
+                    style={styles.wordInput}
+                    value={wordAnswer}
+                    onChangeText={setWordAnswer}
+                    placeholder="What does this mean?"
+                    placeholderTextColor={colors.inkFaint}
+                    autoFocus
+                    onSubmitEditing={checkWordAnswer}
+                    returnKeyType="done"
+                  />
+                  <TouchableOpacity
+                    style={[styles.checkButton, { backgroundColor: langColor.accent }, !wordAnswer.trim() && styles.startButtonDisabled]}
+                    onPress={checkWordAnswer}
+                    disabled={!wordAnswer.trim()}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.checkButtonText}>Check</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.dontKnowButton}
+                    onPress={markWordUnknown}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.dontKnowButtonText}>I don't know</Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()
           ) : (
             <View style={styles.wordResultContainer}>
               <View style={[
@@ -665,6 +709,189 @@ export function ListeningPracticeScreen({ onBack }: Props) {
     </SafeAreaView>
   );
 }
+
+// ─── Particle Explainer ──────────────────────────────────────
+
+const PARTICLE_FAMILY_COLORS: Record<ParticleInfo['family'], string> = {
+  topic: colors.purple,
+  subject: colors.primary,
+  object: colors.warning,
+  direction: '#2D5F8A',
+  means: colors.gold,
+  possessive: colors.success,
+  location: '#2D5F8A',
+  connector: colors.inkLight,
+};
+
+function ParticleExplainer({
+  info,
+  onGotIt,
+  onAddToDeck,
+}: {
+  info: ParticleInfo;
+  onGotIt: () => void;
+  onAddToDeck: () => void;
+}) {
+  const familyColor = PARTICLE_FAMILY_COLORS[info.family];
+
+  return (
+    <View style={particleStyles.wrap}>
+      {/* Grammar tag */}
+      <View style={particleStyles.header}>
+        <View style={[particleStyles.tag, { borderColor: familyColor }]}>
+          <Text style={[particleStyles.tagText, { color: familyColor }]}>PARTICLE · 助詞</Text>
+        </View>
+        <Text style={[particleStyles.role, { color: familyColor }]}>{info.role}</Text>
+      </View>
+
+      <View style={particleStyles.divider} />
+
+      {/* What it does */}
+      <Text style={particleStyles.sectionLabel}>WHAT IT DOES</Text>
+      <Text style={particleStyles.function}>{info.function}</Text>
+
+      {/* How to read it */}
+      <Text style={particleStyles.sectionLabel}>HOW TO READ IT</Text>
+      <Text style={particleStyles.rule}>{info.rule}</Text>
+
+      {/* Example */}
+      <View style={[particleStyles.exampleBox, { borderLeftColor: familyColor }]}>
+        <Text style={particleStyles.exampleJapanese}>{info.example.japanese}</Text>
+        <Text style={particleStyles.exampleEnglish}>{info.example.english}</Text>
+        {info.example.highlight && (
+          <Text style={[particleStyles.exampleHighlight, { color: familyColor }]}>
+            {info.example.highlight}
+          </Text>
+        )}
+      </View>
+
+      {/* Actions */}
+      <View style={particleStyles.actions}>
+        <TouchableOpacity
+          style={[particleStyles.primaryBtn, { backgroundColor: familyColor }]}
+          onPress={onGotIt}
+          activeOpacity={0.85}
+        >
+          <Text style={particleStyles.primaryBtnText}>Got it</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={particleStyles.secondaryBtn}
+          onPress={onAddToDeck}
+          activeOpacity={0.6}
+        >
+          <Text style={particleStyles.secondaryBtnText}>Save for review</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const particleStyles = StyleSheet.create({
+  wrap: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  header: {
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  tag: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: 2,
+    borderWidth: 1,
+    marginBottom: spacing.sm,
+  },
+  tagText: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 2,
+    fontFamily: fonts.mono,
+  },
+  role: {
+    fontSize: fontSize.xl,
+    fontFamily: fonts.display,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginBottom: spacing.lg,
+  },
+  sectionLabel: {
+    fontSize: 9,
+    color: colors.inkFaint,
+    letterSpacing: 2,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+    marginTop: spacing.md,
+  },
+  function: {
+    fontSize: fontSize.base,
+    color: colors.ink,
+    lineHeight: 22,
+    marginBottom: spacing.sm,
+  },
+  rule: {
+    fontSize: fontSize.sm,
+    color: colors.inkLight,
+    fontStyle: 'italic',
+    fontFamily: fonts.display,
+    lineHeight: 21,
+    marginBottom: spacing.lg,
+  },
+  exampleBox: {
+    backgroundColor: colors.bgElevated,
+    borderLeftWidth: 3,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+    borderRadius: 2,
+  },
+  exampleJapanese: {
+    fontSize: fontSize.lg,
+    color: colors.ink,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  exampleEnglish: {
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
+    fontStyle: 'italic',
+    fontFamily: fonts.display,
+    marginBottom: spacing.sm,
+  },
+  exampleHighlight: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    fontFamily: fonts.mono,
+  },
+  actions: {
+    gap: spacing.sm,
+  },
+  primaryBtn: {
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+  },
+  primaryBtnText: {
+    color: colors.white,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  secondaryBtn: {
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  secondaryBtnText: {
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
+    textDecorationLine: 'underline',
+  },
+});
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -973,6 +1200,16 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: '600',
     color: colors.white,
+  },
+  dontKnowButton: {
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  dontKnowButtonText: {
+    fontSize: fontSize.sm,
+    color: colors.inkMuted,
+    textDecorationLine: 'underline',
   },
 
   // Result block

@@ -27,10 +27,37 @@ import { useStore } from '../store/useStore';
 import { ChatBubble } from './ChatBubble';
 import { VoiceRecorder } from './VoiceRecorder';
 import { ListeningPracticeScreen } from './ListeningPracticeScreen';
+import { FlashcardsScreen } from './FlashcardsScreen';
+import { PracticeHubScreen, DisciplineId } from './PracticeHubScreen';
+import { KanaPracticeScreen } from './KanaPracticeScreen';
+import { ComingSoonScreen } from './ComingSoonScreen';
 import { ConversationMessage } from '../agents/teacher';
 import { InteractionMode } from '../agents/prompts/system-prompt';
 import { speakForLanguageLearning, stopSpeaking } from '../services/speech';
 import { colors, fonts, fontSize, spacing, radius, shadows, languageColors } from '../theme';
+
+const STARTER_PROMPTS: Record<string, { native: string; english: string; text: string }[]> = {
+  japanese: [
+    { native: 'はじめまして', english: 'Nice to meet you', text: 'はじめまして。よろしくお願いします。' },
+    { native: '今日の天気は？', english: "Today's weather?", text: '今日の天気はどうですか？' },
+    { native: '自己紹介して', english: 'Introduce yourself', text: '自己紹介をお願いします。' },
+  ],
+  korean: [
+    { native: '반갑습니다', english: 'Nice to meet you', text: '반갑습니다. 잘 부탁드려요.' },
+    { native: '날씨 어때요?', english: "How's the weather?", text: '오늘 날씨가 어때요?' },
+    { native: '소개해 주세요', english: 'Introduce yourself', text: '자기소개를 해 주세요.' },
+  ],
+  mandarin: [
+    { native: '很高兴认识你', english: 'Nice to meet you', text: '很高兴认识你。请多指教。' },
+    { native: '今天天气怎么样？', english: "Today's weather?", text: '今天天气怎么样？' },
+    { native: '请介绍一下', english: 'Introduce yourself', text: '请介绍一下你自己。' },
+  ],
+};
+
+function getStarterPrompts(language: string | null) {
+  if (!language || !STARTER_PROMPTS[language]) return STARTER_PROMPTS.japanese;
+  return STARTER_PROMPTS[language];
+}
 
 const MODES: { mode: InteractionMode; label: string; icon: string }[] = [
   { mode: 'free_conversation', label: 'Chat', icon: '話' },
@@ -45,6 +72,8 @@ export function ChatScreen() {
   const [inputText, setInputText] = useState('');
   const [inputMode, setInputMode] = useState<InputMode>('voice');
   const [showListening, setShowListening] = useState(false);
+  const [showFlashcards, setShowFlashcards] = useState(false);
+  const [showPractice, setShowPractice] = useState<'hub' | DisciplineId | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   const {
@@ -123,6 +152,40 @@ export function ChatScreen() {
     return <ListeningPracticeScreen onBack={() => setShowListening(false)} />;
   }
 
+  // Show flashcards screen
+  if (showFlashcards) {
+    return <FlashcardsScreen onBack={() => setShowFlashcards(false)} />;
+  }
+
+  // Practice flow — hub + discipline drills
+  if (showPractice === 'hub') {
+    return (
+      <PracticeHubScreen
+        onBack={() => setShowPractice(null)}
+        onSelect={(id) => {
+          // Route disciplines that reuse existing screens
+          if (id === 'listening') {
+            setShowPractice(null);
+            setShowListening(true);
+            return;
+          }
+          if (id === 'vocabulary') {
+            setShowPractice(null);
+            setShowFlashcards(true);
+            return;
+          }
+          setShowPractice(id);
+        }}
+      />
+    );
+  }
+  if (showPractice === 'kana') {
+    return <KanaPracticeScreen onBack={() => setShowPractice('hub')} />;
+  }
+  if (showPractice === 'kanji' || showPractice === 'grammar' || showPractice === 'numbers') {
+    return <ComingSoonScreen discipline={showPractice} onBack={() => setShowPractice('hub')} />;
+  }
+
   const langColor = activeLanguage ? languageColors[activeLanguage] : languageColors.japanese;
 
   const getLanguageLabel = () => {
@@ -163,7 +226,7 @@ export function ChatScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Mode Selector */}
+      {/* Mode Selector — primary conversation modes */}
       <View style={styles.modeSelector}>
         {MODES.map(({ mode, label, icon }) => {
           const isActive = interactionMode === mode;
@@ -186,13 +249,18 @@ export function ChatScreen() {
             </TouchableOpacity>
           );
         })}
+      </View>
+
+      {/* Tools row — practice disciplines hub */}
+      <View style={styles.toolsRow}>
         <TouchableOpacity
-          style={[styles.modeButton, styles.listeningButton]}
-          onPress={() => setShowListening(true)}
+          style={styles.toolPill}
+          onPress={() => setShowPractice('hub')}
           activeOpacity={0.7}
         >
-          <Text style={[styles.modeIcon, { color: langColor.accent }]}>聴</Text>
-          <Text style={[styles.modeLabel, { color: langColor.accent, fontWeight: '600' }]}>Listen</Text>
+          <Text style={[styles.toolKanji, { color: langColor.accent }]}>修</Text>
+          <Text style={styles.toolLabel}>Practice · six disciplines</Text>
+          <Text style={styles.toolArrow}>›</Text>
         </TouchableOpacity>
       </View>
 
@@ -211,13 +279,29 @@ export function ChatScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>筆</Text>
-              <Text style={styles.emptyTitle}>Start a conversation</Text>
+              <Text style={[styles.emptyIcon, { color: langColor.accent }]}>筆</Text>
+              <Text style={styles.emptyTitle}>Begin the conversation</Text>
               <Text style={styles.emptyText}>
                 {inputMode === 'voice'
-                  ? 'Tap the microphone to speak'
-                  : 'Type a message below'}
+                  ? 'Tap the microphone below to speak'
+                  : 'Type a message to begin'}
               </Text>
+
+              {/* Suggested starters */}
+              <View style={styles.startersContainer}>
+                <Text style={styles.startersLabel}>Try saying</Text>
+                {getStarterPrompts(activeLanguage).map((prompt, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={styles.starterChip}
+                    onPress={() => sendMessage(prompt.text)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.starterNative}>{prompt.native}</Text>
+                    <Text style={styles.starterEnglish}>{prompt.english}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           }
         />
@@ -378,9 +462,43 @@ const styles = StyleSheet.create({
   modeButtonActive: {
     backgroundColor: colors.primary,
   },
-  listeningButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
+  toolsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgCard,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingHorizontal: spacing.md,
+  },
+  toolPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
+  },
+  toolDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: colors.border,
+  },
+  toolKanji: {
+    fontSize: 18,
+    fontFamily: fonts.display,
+    marginRight: spacing.sm,
+  },
+  toolLabel: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    color: colors.ink,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  toolArrow: {
+    fontSize: fontSize.lg,
+    color: colors.inkFaint,
+    fontWeight: '300',
+    marginRight: spacing.sm,
   },
   modeIcon: {
     fontSize: 16,
@@ -427,6 +545,40 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: fontSize.sm,
     color: colors.inkFaint,
+  },
+  startersContainer: {
+    marginTop: spacing['2xl'],
+    width: '100%',
+    paddingHorizontal: spacing.xl,
+  },
+  startersLabel: {
+    fontSize: fontSize.xs,
+    color: colors.inkFaint,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    fontWeight: '600',
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  starterChip: {
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  starterNative: {
+    fontSize: fontSize.md,
+    color: colors.ink,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  starterEnglish: {
+    fontSize: fontSize.xs,
+    color: colors.inkMuted,
+    letterSpacing: 0.2,
   },
   loadingContainer: {
     alignItems: 'center',

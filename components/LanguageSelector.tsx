@@ -302,14 +302,14 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: fontSize.xl,
+    fontFamily: fonts.display,
     color: colors.inkLight,
     textAlign: 'center',
     paddingVertical: spacing.md,
     marginBottom: spacing.md,
     borderTopWidth: 1,
-    borderBottomWidth: 1,
     borderColor: colors.borderLight,
-    letterSpacing: 2,
+    letterSpacing: 3,
   },
   levelsContainer: {
     marginBottom: spacing.lg,
